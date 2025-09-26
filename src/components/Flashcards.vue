@@ -325,7 +325,7 @@ export default {
   justify-content: center;
   align-items: center;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  background: linear-gradient(45deg, #667eea, #764ba2);
+  background: linear-gradient(45deg, #668fea, #9f4ba2);
   color: white;
 }
 

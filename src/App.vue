@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <header class="header">
-      <h1>Korean Nuna App</h1>
+      <h1>❤️ Корейский с любовью</h1>
       <nav class="nav">
         <button
             @click="currentView = 'flashcards'"
@@ -64,7 +64,7 @@ export default {
 
 body {
   font-family: 'Arial', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #66b9ea 0%, #764ba2 100%);
   min-height: 100vh;
 }
 
