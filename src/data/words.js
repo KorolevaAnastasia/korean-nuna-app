@@ -307,7 +307,7 @@ export const koreanWords = [
         { id:306, korean: '오전', russian: 'первая половина дня (00-13)', category: 'Сущ.' },
         { id:307, korean: '오후', russian: 'после обеда (13-00)', category: 'Сущ.' },
         { id:308, korean: '옷', russian: 'одежда', category: 'Сущ.' },
-        { id:309, korean: '와03', russian: 'вау', category: 'Межд.' },
+        { id:309, korean: '와', russian: 'вау', category: 'Межд.' },
         { id:310, korean: '왜', russian: 'почему', category: 'Нареч.' },
         { id:311, korean: '왼쪽', russian: 'лево', category: 'Сущ.' },
         { id:312, korean: '요리', russian: 'приготовление пищи', category: 'Сущ.' },

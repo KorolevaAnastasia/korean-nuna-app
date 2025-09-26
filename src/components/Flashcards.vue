@@ -25,7 +25,6 @@
                 'correct': option.isCorrect && showResult,
                 'incorrect': !option.isCorrect && showResult && selectedOption === index,
                 'disabled': showResult,
-                'auto-next': option.isCorrect && showResult && isCorrect
               }"
                 :disabled="showResult"
             >
@@ -117,6 +116,7 @@ export default {
     const currentQuestion = computed(() => {
       if (!currentCard.value) return ''
 
+      // Обновляем направление для каждого нового вопроса
       currentDirection.value = getCurrentDirection()
 
       return currentDirection.value === 'korean-to-russian'
@@ -137,26 +137,34 @@ export default {
 
       const correct = correctAnswer.value
 
-      const otherWords = words.value
+      // Получаем все возможные варианты переводов (исключая текущее слово)
+      const allOtherWords = words.value
           .filter(word => word.id !== currentCard.value.id)
           .map(word => {
             return currentDirection.value === 'korean-to-russian'
                 ? word.russian
                 : word.korean
           })
-          .filter((value, index, self) => self.indexOf(value) === index)
-          .slice(0, 3)
+          .filter((value, index, self) => self.indexOf(value) === index) // Убираем дубликаты
 
+      // Выбираем 3 случайных варианта из всех возможных
+      const shuffledOtherWords = [...allOtherWords].sort(() => Math.random() - 0.5)
+      const randomOptions = shuffledOtherWords.slice(0, 3)
+
+      // Создаем массив опций: правильный ответ + 3 случайных
       const allOptions = [
         { text: correct, isCorrect: true }
       ]
 
-      otherWords.forEach(word => {
+      // Добавляем 3 случайных варианта
+      randomOptions.forEach(word => {
         allOptions.push({ text: word, isCorrect: false })
       })
 
+      // Перемешиваем все опции
       return allOptions.sort(() => Math.random() - 0.5)
     })
+
 
     const startQuiz = () => {
       if (words.value.length === 0) {
@@ -170,6 +178,8 @@ export default {
       selectedOption.value = null
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
+      // Сбрасываем направление для первого вопроса
+      currentDirection.value = getCurrentDirection()
     }
 
     const checkAnswer = (correct, index) => {
