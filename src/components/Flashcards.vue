@@ -24,7 +24,8 @@
                 'option-btn': true,
                 'correct': option.isCorrect && showResult,
                 'incorrect': !option.isCorrect && showResult && selectedOption === index,
-                'disabled': showResult
+                'disabled': showResult,
+                'auto-next': option.isCorrect && showResult && isCorrect
               }"
                 :disabled="showResult"
             >
@@ -32,10 +33,17 @@
             </button>
           </div>
 
-          <div v-if="showResult" class="result">
-            <p v-if="isCorrect" class="correct-message">✅ Правильно!</p>
-            <p v-else class="incorrect-message">❌ Неправильно. Правильный ответ: {{ correctAnswer }}</p>
+          <div v-if="showResult && !isCorrect" class="result">
+            <p class="incorrect-message">❌ Неправильно. Правильный ответ: {{ correctAnswer }}</p>
             <button @click="nextCard" class="btn-next">Следующая карточка</button>
+          </div>
+
+          <!-- Автоматическое сообщение о правильном ответе -->
+          <div v-if="showResult && isCorrect" class="auto-result">
+            <p class="correct-message">✅ Правильно!</p>
+            <div class="auto-progress">
+              <div class="progress-bar-auto" :style="{ width: autoProgress + '%' }"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -62,8 +70,8 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
-import { koreanWords } from '../data/words.js'
+import {computed, onMounted, ref, watch} from 'vue'
+import {koreanWords} from '../data/words.js'
 
 export default {
   name: 'Flashcards',
@@ -76,7 +84,9 @@ export default {
     const isCorrect = ref(false)
     const selectedOption = ref(null)
     const correctAnswers = ref(0)
-    const currentDirection = ref('korean-to-russian') // Запоминаем направление для текущей карточки
+    const currentDirection = ref('korean-to-russian')
+    const autoProgress = ref(0) // Для прогресс-бара автоматического перехода
+    const autoNextTimer = ref(null) // Таймер для автоматического перехода
 
     onMounted(() => {
       words.value = koreanWords || []
@@ -84,8 +94,7 @@ export default {
 
     const shuffledWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
-      const shuffled = [...words.value].sort(() => Math.random() - 0.5)
-      return shuffled
+      return [...words.value].sort(() => Math.random() - 0.5)
     })
 
     const currentCard = computed(() => {
@@ -98,7 +107,6 @@ export default {
       return ((currentIndex.value + 1) / shuffledWords.value.length) * 100
     })
 
-    // Определяем направление для текущей карточки
     const getCurrentDirection = () => {
       if (quizMode.value === 'mixed') {
         return Math.random() > 0.5 ? 'korean-to-russian' : 'russian-to-korean'
@@ -106,7 +114,6 @@ export default {
       return quizMode.value
     }
 
-    // Вопрос и правильный ответ
     const currentQuestion = computed(() => {
       if (!currentCard.value) return ''
 
@@ -125,35 +132,29 @@ export default {
           : currentCard.value.korean
     })
 
-    // Генерируем варианты ответов
     const options = computed(() => {
       if (!currentCard.value) return []
 
-      // Правильный ответ
       const correct = correctAnswer.value
 
-      // Получаем неправильные варианты из других слов
       const otherWords = words.value
           .filter(word => word.id !== currentCard.value.id)
           .map(word => {
             return currentDirection.value === 'korean-to-russian'
-                ? word.russian  // Если вопрос на корейском, то варианты на русском
-                : word.korean   // Если вопрос на русском, то варианты на корейском
+                ? word.russian
+                : word.korean
           })
-          .filter((value, index, self) => self.indexOf(value) === index) // Убираем дубликаты
-          .slice(0, 3) // Берем 3 случайных слова
+          .filter((value, index, self) => self.indexOf(value) === index)
+          .slice(0, 3)
 
-      // Создаем массив вариантов
       const allOptions = [
         { text: correct, isCorrect: true }
       ]
 
-      // Добавляем неправильные варианты
       otherWords.forEach(word => {
         allOptions.push({ text: word, isCorrect: false })
       })
 
-      // Перемешиваем варианты
       return allOptions.sort(() => Math.random() - 0.5)
     })
 
@@ -167,6 +168,8 @@ export default {
       showResult.value = false
       correctAnswers.value = 0
       selectedOption.value = null
+      autoProgress.value = 0
+      clearTimeout(autoNextTimer.value)
     }
 
     const checkAnswer = (correct, index) => {
@@ -176,12 +179,35 @@ export default {
 
       if (correct) {
         correctAnswers.value++
+        // Запускаем автоматический переход через 1.5 секунды
+        startAutoNext()
       }
+      // При неправильном ответе кнопка "Следующая" остается видимой
+    }
+
+    const startAutoNext = () => {
+      autoProgress.value = 0
+      const duration = 1500 // 1.5 секунды
+      const steps = 30
+      const stepDuration = duration / steps
+
+      let step = 0
+      const timer = setInterval(() => {
+        step++
+        autoProgress.value = (step / steps) * 100
+
+        if (step >= steps) {
+          clearInterval(timer)
+          nextCard()
+        }
+      }, stepDuration)
     }
 
     const nextCard = () => {
       showResult.value = false
       selectedOption.value = null
+      autoProgress.value = 0
+      clearTimeout(autoNextTimer.value)
 
       if (currentIndex.value < shuffledWords.value.length - 1) {
         currentIndex.value++
@@ -190,10 +216,16 @@ export default {
       }
     }
 
-    // Сбрасываем прогресс при изменении режима
     watch(quizMode, () => {
       if (quizStarted.value) {
         startQuiz()
+      }
+    })
+
+    // Очищаем таймер при размонтировании компонента
+    onMounted(() => {
+      return () => {
+        clearTimeout(autoNextTimer.value)
       }
     })
 
@@ -211,6 +243,7 @@ export default {
       currentQuestion,
       correctAnswer,
       options,
+      autoProgress,
       startQuiz,
       checkAnswer,
       nextCard
@@ -326,6 +359,8 @@ export default {
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
 }
 
 .option-btn:hover:not(.disabled) {
@@ -336,6 +371,8 @@ export default {
 .option-btn.correct {
   background: #4CAF50;
   border-color: #45a049;
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
 }
 
 .option-btn.incorrect {
@@ -345,12 +382,29 @@ export default {
 
 .option-btn.disabled {
   cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.option-btn.auto-next::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.5);
+  animation: progressBar 1.5s linear forwards;
+}
+
+@keyframes progressBar {
+  from { width: 0; }
+  to { width: 100%; }
 }
 
 .correct-message {
   color: #4CAF50;
   font-weight: bold;
   font-size: 1.2em;
+  margin-bottom: 10px;
 }
 
 .incorrect-message {
@@ -374,6 +428,26 @@ export default {
 .btn-next:hover {
   background: white;
   color: #667eea;
+}
+
+.auto-result {
+  margin-top: 20px;
+}
+
+.auto-progress {
+  width: 200px;
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px auto 0;
+}
+
+.progress-bar-auto {
+  height: 100%;
+  background: #4CAF50;
+  transition: width 0.05s linear;
+  border-radius: 3px;
 }
 
 .progress {
@@ -410,5 +484,24 @@ export default {
 
 .quiz-finished h2, .welcome h2 {
   margin-bottom: 20px;
+}
+
+.result {
+  margin-top: 20px;
+}
+
+/* Анимации */
+.option-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.option-btn.correct {
+  animation: correctPulse 0.5s ease-in-out;
+}
+
+@keyframes correctPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1.02); }
 }
 </style>
