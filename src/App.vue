@@ -120,7 +120,7 @@ body {
   margin: 0 auto;
 }
 
-input:focus {
+input:focus, select:focus, button:focus {
   outline: 2px solid white;
 }
 </style>

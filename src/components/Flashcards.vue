@@ -2,7 +2,7 @@
   <div class="flashcards">
     <div class="controls">
       <button @click="startQuiz" class="btn-start">{{ quizStarted ? 'Перезапустить' : 'Начать обучение' }}</button>
-      <select v-model="quizMode" class="mode-select">
+      <select id="mode-select" v-model="quizMode" class="mode-select">
         <option value="korean-to-russian">Корейский → Русский</option>
         <option value="russian-to-korean">Русский → Корейский</option>
         <option value="mixed">Смешанный режим</option>
@@ -298,6 +298,7 @@ export default {
   border-radius: 10px;
   font-size: 16px;
   background: transparent;
+  color: white;
 }
 
 .mode-select option {
