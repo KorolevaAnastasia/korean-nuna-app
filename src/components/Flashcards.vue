@@ -238,7 +238,7 @@ export default {
   color: white;
   padding: 12px 24px;
   border: none;
-  border-radius: 25px;
+  border-radius: 10px;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -285,7 +285,7 @@ export default {
 .card-content {
   width: 100%;
   height: 100%;
-  border-radius: 20px;
+  border-radius: 10px;
   padding: 30px;
   display: flex;
   flex-direction: column;
@@ -319,7 +319,7 @@ export default {
 .option-btn {
   padding: 15px 20px;
   border: 2px solid rgba(255,255,255,0.3);
-  border-radius: 15px;
+  border-radius: 10px;
   background: rgba(255,255,255,0.1);
   color: white;
   font-size: 16px;
@@ -347,10 +347,6 @@ export default {
   cursor: not-allowed;
 }
 
-.result {
-  margin-top: 20px;
-}
-
 .correct-message {
   color: #4CAF50;
   font-weight: bold;
@@ -369,7 +365,7 @@ export default {
   background: rgba(255,255,255,0.2);
   color: white;
   border: 2px solid white;
-  border-radius: 20px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 16px;
@@ -407,7 +403,7 @@ export default {
 .quiz-finished, .welcome {
   background: rgba(255,255,255,0.1);
   padding: 40px;
-  border-radius: 20px;
+  border-radius: 10px;
   color: white;
   backdrop-filter: blur(10px);
 }

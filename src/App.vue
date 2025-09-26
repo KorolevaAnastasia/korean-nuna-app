@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <header class="header">
-      <h1>🇰🇷 Korean Nuna App 🇷🇺</h1>
+      <h1>Korean Nuna App</h1>
       <nav class="nav">
         <button
             @click="currentView = 'flashcards'"
@@ -15,12 +15,12 @@
         >
           Словарь
         </button>
-        <button
+<!--        <button
             @click="currentView = 'admin'"
             :class="{ active: currentView === 'admin' }"
         >
           Добавить слово
-        </button>
+        </button>-->
       </nav>
     </header>
 
@@ -95,7 +95,7 @@ body {
 .nav button {
   padding: 12px 24px;
   border: none;
-  border-radius: 25px;
+  border-radius: 10px;
   background: rgba(255,255,255,0.2);
   color: white;
   font-size: 16px;
@@ -118,5 +118,9 @@ body {
 .main {
   max-width: 800px;
   margin: 0 auto;
+}
+
+input:focus {
+  outline: 2px solid white;
 }
 </style>

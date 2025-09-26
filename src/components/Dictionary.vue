@@ -5,9 +5,10 @@
       <input
           v-model="searchQuery"
           placeholder="Поиск слов..."
+          id="search-input"
           class="search-input"
       >
-      <select v-model="categoryFilter" class="category-select">
+      <select v-model="categoryFilter" class="category-select" id="category-select">
         <option value="">Все категории</option>
         <option v-for="category in categories" :key="category" :value="category">
           {{ category }}
@@ -84,7 +85,7 @@ export default {
 .header {
   background: rgba(255,255,255,0.1);
   padding: 30px;
-  border-radius: 20px;
+  border-radius: 10px;
   margin-bottom: 30px;
   backdrop-filter: blur(10px);
   text-align: center;
@@ -124,7 +125,7 @@ export default {
 .word-card {
   background: rgba(255,255,255,0.95);
   padding: 20px;
-  border-radius: 15px;
+  border-radius: 10px;
   text-align: center;
   box-shadow: 0 5px 15px rgba(0,0,0,0.1);
   transition: transform 0.3s ease;
@@ -152,7 +153,7 @@ export default {
   color: #666;
   background: #f0f0f0;
   padding: 5px 10px;
-  border-radius: 15px;
+  border-radius: 10px;
   display: inline-block;
 }
 

@@ -101,7 +101,7 @@ export default {
 .auth-section, .add-word-section {
   background: rgba(255,255,255,0.1);
   padding: 40px;
-  border-radius: 20px;
+  border-radius: 10px;
   backdrop-filter: blur(10px);
   text-align: center;
 }
