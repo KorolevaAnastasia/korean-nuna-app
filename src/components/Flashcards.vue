@@ -1,12 +1,38 @@
 <template>
   <div class="flashcards">
     <div class="controls">
-      <button @click="startQuiz" class="btn-start">{{ quizStarted ? 'Перезапустить' : 'Начать обучение' }}</button>
       <select id="mode-select" v-model="quizMode" class="mode-select">
         <option value="korean-to-russian">Корейский → Русский</option>
         <option value="russian-to-korean">Русский → Корейский</option>
         <option value="mixed">Смешанный режим</option>
       </select>
+
+      <div class="mode-switcher">
+        <label class="mode-label">
+          <input
+              type="radio"
+              v-model="studyMode"
+              value="all"
+              @change="onModeChange"
+          >
+          Все слова
+        </label>
+        <label class="mode-label">
+          <input
+              type="radio"
+              v-model="studyMode"
+              value="recent"
+              @change="onModeChange"
+          >
+          Последние 20 слов
+        </label>
+      </div>
+
+      <button @click="startQuiz" class="btn-start">{{ quizStarted ? 'Перезапустить' : 'Начать обучение' }}</button>
+    </div>
+
+    <div v-if="studyMode === 'recent' && !quizStarted" class="mode-info">
+      <p>📖 Будет показано последних 20 слов для повторения</p>
     </div>
 
     <div v-if="currentCard && quizStarted" class="card-container">
@@ -47,6 +73,10 @@
       </div>
 
       <div class="progress">
+        <div class="progress-info">
+          Режим: {{ studyMode === 'recent' ? 'Последние 20 слов' : 'Все слова' }}
+          (всего: {{ wordsCount }})
+        </div>
         Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
@@ -64,14 +94,14 @@
       <h2>Добро пожаловать в режим карточек!</h2>
       <p>Выберите режим обучения и нажмите "Начать обучение".</p>
       <p v-if="isLoading">Загрузка слов...</p>
-      <p v-if="!isLoading">Всего загружено: {{shuffledWords.length}}.</p>
+      <p v-if="!isLoading">Всего загружено: {{ shuffledWords.length }}.</p>
     </div>
   </div>
 </template>
 
 <script>
 import {computed, onMounted, ref, watch} from 'vue'
-import { getKoreanWords } from '../data/words.js'
+import {getKoreanWords} from '../data/words.js'
 
 export default {
   name: 'Flashcards',
@@ -88,6 +118,7 @@ export default {
     const autoProgress = ref(0)
     const autoNextTimer = ref(null)
     const isLoading = ref(true)
+    const studyMode = ref('all')
 
     onMounted(async () => {
       try {
@@ -99,10 +130,28 @@ export default {
       }
     })
 
-    const shuffledWords = computed(() => {
+    const currentWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
-      return [...words.value].sort(() => Math.random() - 0.5)
+
+      if (studyMode.value === 'recent') {
+        // Берем последние 20 слов
+        return words.value.slice(-20)
+      } else {
+        // Все слова
+        return words.value
+      }
     })
+
+    const shuffledWords = computed(() => {
+      if (!currentWords.value || currentWords.value.length === 0) return []
+      return [...currentWords.value].sort(() => Math.random() - 0.5)
+    })
+
+    const onModeChange = () => {
+      if (quizStarted.value) {
+        startQuiz() // Перезапускаем при смене режима
+      }
+    }
 
     const currentCard = computed(() => {
       return quizStarted.value && shuffledWords.value.length > 0
@@ -160,12 +209,12 @@ export default {
 
       // Создаем массив опций: правильный ответ + 3 случайных
       const allOptions = [
-        { text: correct, isCorrect: true }
+        {text: correct, isCorrect: true}
       ]
 
       // Добавляем 3 случайных варианта
       randomOptions.forEach(word => {
-        allOptions.push({ text: word, isCorrect: false })
+        allOptions.push({text: word, isCorrect: false})
       })
 
       // Перемешиваем все опции
@@ -174,10 +223,11 @@ export default {
 
 
     const startQuiz = () => {
-      if (words.value.length === 0) {
+      if (currentWords.value.length === 0) {
         alert('Нет слов для обучения!')
         return
       }
+
       quizStarted.value = true
       currentIndex.value = 0
       showResult.value = false
@@ -185,7 +235,6 @@ export default {
       selectedOption.value = null
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
-      // Сбрасываем направление для первого вопроса
       currentDirection.value = getCurrentDirection()
     }
 
@@ -264,13 +313,90 @@ export default {
       startQuiz,
       checkAnswer,
       nextCard,
-      isLoading
+      isLoading,
+      studyMode,
+      onModeChange,
+      wordsCount: computed(() => currentWords.value.length)
     }
   }
 }
 </script>
 
 <style scoped>
+.mode-switcher {
+  display: flex;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 15px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.mode-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.mode-label:hover {
+  color: #ffeb3b;
+}
+
+.mode-label input[type="radio"] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #4CAF50;
+}
+
+.mode-info {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  color: white;
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+.mode-info p {
+  margin: 0;
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mode-switcher {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.progress {
+  margin-top: 20px;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.progress-info {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
 .flashcards {
   text-align: center;
 }
@@ -343,7 +469,7 @@ export default {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   background: linear-gradient(45deg, #668fea, #9f4ba2);
   color: white;
 }
@@ -351,7 +477,7 @@ export default {
 .question {
   font-size: 2em;
   margin-bottom: 20px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .hint {
@@ -370,9 +496,9 @@ export default {
 
 .option-btn {
   padding: 15px 20px;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 10px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: white;
   font-size: 16px;
   cursor: pointer;
@@ -383,7 +509,7 @@ export default {
 }
 
 .option-btn:hover:not(.disabled) {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
 }
 
@@ -410,13 +536,17 @@ export default {
   bottom: 0;
   left: 0;
   height: 3px;
-  background: rgba(255,255,255,0.5);
+  background: rgba(255, 255, 255, 0.5);
   animation: progressBar 1.5s linear forwards;
 }
 
 @keyframes progressBar {
-  from { width: 0; }
-  to { width: 100%; }
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
 }
 
 .correct-message {
@@ -435,7 +565,7 @@ export default {
 
 .btn-next {
   padding: 12px 24px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   color: white;
   border: 2px solid white;
   border-radius: 10px;
@@ -456,7 +586,7 @@ export default {
 .auto-progress {
   width: 200px;
   height: 6px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   overflow: hidden;
   margin: 10px auto 0;
@@ -480,7 +610,7 @@ export default {
   width: 100%;
   max-width: 500px;
   height: 10px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 5px;
   margin: 10px auto 0;
   overflow: hidden;
@@ -494,7 +624,7 @@ export default {
 }
 
 .quiz-finished, .welcome {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   padding: 40px;
   border-radius: 10px;
   color: white;
@@ -519,8 +649,14 @@ export default {
 }
 
 @keyframes correctPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1.02); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1.02);
+  }
 }
 </style>
