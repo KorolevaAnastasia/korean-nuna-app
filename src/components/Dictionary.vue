@@ -3,7 +3,7 @@
     <div class="header">
       <h2>📚 Корейско-русский словарь</h2>
       <div v-if="isLoading" class="loading">Загрузка слов...</div>
-      <div v-if="!isLoading">Всего загружено: {{filteredWords.length}}.</div>
+      <div v-if="!isLoading" class="loading">Всего загружено: {{filteredWords.length}}.</div>
       <input
           v-model="searchQuery"
           placeholder="Поиск слов..."
