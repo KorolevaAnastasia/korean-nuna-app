@@ -20,7 +20,7 @@
 
       <div v-else class="admin-content">
         <div class="success-message">
-          ✅ Доступ разрешен! Вот ссылка на таблицу слов:
+          ✅ Доступ разрешен! Вот ссылка на таблицу:
         </div>
 
         <div class="link-container">
@@ -29,7 +29,7 @@
               target="_blank"
               class="sheet-link"
           >
-            📊 Открыть Google Таблицу слов
+            📊 Открыть Google Таблицу
           </a>
 
           <button @click="copyLink" class="copy-btn">
