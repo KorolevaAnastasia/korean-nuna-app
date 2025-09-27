@@ -134,30 +134,34 @@ export default {
   min-height: 60vh;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 20px;
+  align-items: flex-start; /* Изменено с center на flex-start для мобилок */
+  padding: 15px;
+  margin-top: 20px; /* Добавляем отступ сверху */
 }
 
 .admin-container {
   background: rgba(255, 255, 255, 0.95);
-  padding: 40px;
+  padding: 30px 25px; /* Уменьшаем padding */
   border-radius: 15px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   max-width: 600px;
   width: 100%;
   text-align: center;
+  margin: 0 auto; /* Центрируем */
 }
 
 .admin-container h2 {
   color: #333;
-  margin-bottom: 30px;
-  font-size: 2em;
+  margin-bottom: 25px;
+  font-size: 1.7em; /* Уменьшаем размер шрифта */
+  line-height: 1.3;
 }
 
 .login-form p {
   color: #666;
   margin-bottom: 20px;
   font-size: 16px;
+  line-height: 1.4;
 }
 
 .input-group {
@@ -166,6 +170,7 @@ export default {
   margin-bottom: 20px;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
 }
 
 .password-input {
@@ -177,6 +182,8 @@ export default {
   transition: border-color 0.3s ease;
   background: transparent;
   color: #1a1a1a;
+  width: 100%; /* Добавляем для мобилок */
+  max-width: 300px; /* Ограничиваем максимальную ширину */
 }
 
 .password-input:focus {
@@ -193,6 +200,8 @@ export default {
   font-size: 16px;
   cursor: pointer;
   transition: background 0.3s ease;
+  width: 100%; /* Полная ширина на мобилках */
+  max-width: 300px; /* Ограничиваем ширину */
 }
 
 .login-btn:hover {
@@ -203,20 +212,23 @@ export default {
   color: #e74c3c;
   font-size: 14px;
   margin-top: 10px;
+  line-height: 1.3;
 }
 
 .success-message {
   color: #27ae60;
-  font-size: 18px;
-  margin-bottom: 30px;
+  font-size: 16px; /* Уменьшаем размер */
+  margin-bottom: 25px;
   font-weight: bold;
+  line-height: 1.4;
+  padding: 0 10px;
 }
 
 .link-container {
   background: #f8f9fa;
-  padding: 20px;
+  padding: 20px 15px; /* Уменьшаем боковые отступы */
   border-radius: 10px;
-  margin-bottom: 30px;
+  margin-bottom: 25px;
   border-left: 4px solid #667eea;
   border-right: 4px solid #667eea;
 }
@@ -224,13 +236,15 @@ export default {
 .sheet-link {
   display: block;
   color: #667eea;
-  font-size: 18px;
+  font-size: 16px; /* Уменьшаем размер шрифта */
   text-decoration: none;
   margin-bottom: 15px;
-  padding: 10px;
+  padding: 12px 10px;
   border: 2px solid transparent;
   border-radius: 8px;
   transition: all 0.3s ease;
+  word-break: break-all; /* Перенос длинных слов */
+  line-height: 1.3;
 }
 
 .sheet-link:hover {
@@ -240,7 +254,7 @@ export default {
 }
 
 .copy-btn {
-  padding: 10px 20px;
+  padding: 12px 20px;
   background: #95a5a6;
   color: white;
   border: none;
@@ -248,6 +262,8 @@ export default {
   cursor: pointer;
   transition: background 0.3s ease;
   font-size: 14px;
+  width: 100%; /* Полная ширина на мобилках */
+  max-width: 250px;
 }
 
 .copy-btn:hover {
@@ -257,7 +273,7 @@ export default {
 .admin-info {
   text-align: left;
   background: #f8f9fa;
-  padding: 20px;
+  padding: 20px 15px; /* Уменьшаем боковые отступы */
   border-radius: 10px;
   margin-bottom: 20px;
 }
@@ -265,17 +281,21 @@ export default {
 .admin-info h3 {
   color: #333;
   margin-bottom: 15px;
+  font-size: 1.2em;
 }
 
 .admin-info ul {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 .admin-info li {
-  padding: 5px 0;
+  padding: 8px 0;
   color: #666;
   border-bottom: 1px solid #eee;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .admin-info li:last-child {
@@ -283,33 +303,128 @@ export default {
 }
 
 .logout-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: #e74c3c;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.3s ease;
+  width: 100%;
+  max-width: 200px;
 }
 
 .logout-btn:hover {
   background: #c0392b;
 }
 
-/* Адаптивность */
-@media (max-width: 768px) {
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 480px) {
+  .admin {
+    padding: 10px;
+    margin-top: 10px;
+    align-items: center; /* Центрируем на очень маленьких экранах */
+    min-height: 50vh;
+  }
+
   .admin-container {
-    padding: 20px;
-    margin: 10px;
+    padding: 20px 15px;
+    margin: 0 5px;
+  }
+
+  .admin-container h2 {
+    font-size: 1.5em;
+    margin-bottom: 20px;
+  }
+
+  .login-form p {
+    font-size: 15px;
+    margin-bottom: 15px;
   }
 
   .input-group {
-    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
   }
 
   .password-input {
+    font-size: 16px; /* Сохраняем размер для удобства ввода */
+    padding: 14px 12px; /* Увеличиваем padding для удобства тапа */
     min-width: auto;
-    width: 100%;
+  }
+
+  .login-btn {
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+
+  .success-message {
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+
+  .link-container {
+    padding: 15px 10px;
+    margin-bottom: 20px;
+  }
+
+  .sheet-link {
+    font-size: 15px;
+    padding: 10px 8px;
+  }
+
+  .admin-info {
+    padding: 15px 10px;
+  }
+
+  .admin-info h3 {
+    font-size: 1.1em;
+  }
+
+  .admin-info li {
+    font-size: 13px;
+    padding: 6px 0;
+  }
+}
+
+/* Для горизонтальной ориентации на мобильных */
+@media (max-width: 768px) and (orientation: landscape) {
+  .admin {
+    min-height: 80vh;
+    padding: 10px;
+  }
+
+  .admin-container {
+    padding: 20px;
+    max-width: 90%;
+  }
+
+  .input-group {
+    flex-direction: row; /* Горизонтально в landscape */
+  }
+
+  .password-input {
+    width: auto;
+    flex: 1;
+  }
+
+  .login-btn {
+    width: auto;
+  }
+}
+
+/* Улучшения для очень высоких узких экранов */
+@media (max-width: 320px) {
+  .admin-container {
+    padding: 15px 10px;
+  }
+
+  .admin-container h2 {
+    font-size: 1.3em;
+  }
+
+  .sheet-link {
+    font-size: 14px;
   }
 }
 </style>
