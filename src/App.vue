@@ -15,12 +15,19 @@
         >
           Словарь
         </button>
+        <button
+            @click="currentView = 'admin'"
+            :class="{ active: currentView === 'admin' }"
+        >
+          Админ
+        </button>
       </nav>
     </header>
 
     <main class="main">
       <Flashcards v-if="currentView === 'flashcards'" />
       <Dictionary v-if="currentView === 'dictionary'" />
+      <Admin v-if="currentView === 'admin'" />
     </main>
   </div>
 </template>
@@ -29,10 +36,12 @@
 import { ref } from 'vue'
 import Flashcards from './components/Flashcards.vue'
 import Dictionary from './components/Dictionary.vue'
+import Admin from "./components/Admin.vue";
 
 export default {
   name: 'App',
   components: {
+    Admin,
     Flashcards,
     Dictionary,
   },
