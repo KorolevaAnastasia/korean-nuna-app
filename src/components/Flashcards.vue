@@ -33,11 +33,10 @@
           </div>
 
           <div v-if="showResult && !isCorrect" class="result">
-            <p class="incorrect-message">❌ Неправильно. Правильный ответ: {{ correctAnswer }}</p>
+            <p class="incorrect-message">❌ Правильный ответ: {{ correctAnswer }}</p>
             <button @click="nextCard" class="btn-next">Следующая карточка</button>
           </div>
 
-          <!-- Автоматическое сообщение о правильном ответе -->
           <div v-if="showResult && isCorrect" class="auto-result">
             <p class="correct-message">✅ Правильно!</p>
             <div class="auto-progress">
@@ -84,8 +83,8 @@ export default {
     const selectedOption = ref(null)
     const correctAnswers = ref(0)
     const currentDirection = ref('korean-to-russian')
-    const autoProgress = ref(0) // Для прогресс-бара автоматического перехода
-    const autoNextTimer = ref(null) // Таймер для автоматического перехода
+    const autoProgress = ref(0)
+    const autoNextTimer = ref(null)
 
     onMounted(() => {
       words.value = koreanWords || []
@@ -116,7 +115,6 @@ export default {
     const currentQuestion = computed(() => {
       if (!currentCard.value) return ''
 
-      // Обновляем направление для каждого нового вопроса
       currentDirection.value = getCurrentDirection()
 
       return currentDirection.value === 'korean-to-russian'

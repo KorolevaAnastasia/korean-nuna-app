@@ -66,16 +66,24 @@ body {
   font-family: 'Arial', sans-serif;
   background: linear-gradient(135deg, #66b9ea 0%, #764ba2 100%);
   min-height: 100vh;
+  /* Фиксированный фон, который всегда покрывает весь экран */
+  background-attachment: fixed;
+  background-size: cover;
 }
 
 #app {
   min-height: 100vh;
   padding: 20px;
+  /* Обеспечиваем, чтобы app всегда был не меньше высоты экрана */
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
   text-align: center;
   margin-bottom: 30px;
+  /* Заголовок остается вверху без прокрутки */
+  flex-shrink: 0;
 }
 
 .header h1 {
@@ -118,9 +126,34 @@ body {
 .main {
   max-width: 800px;
   margin: 0 auto;
+  /* Основной контент может прокручиваться */
+  flex-grow: 1;
+  width: 100%;
+  /* Добавляем отступ снизу для лучшего внешнего вида */
+  padding-bottom: 20px;
 }
 
 input:focus, select:focus, button:focus {
   outline: 2px solid white;
+}
+
+/* Дополнительные стили для обеспечения корректного отображения на мобильных устройствах */
+@media (max-width: 768px) {
+  #app {
+    padding: 15px;
+  }
+
+  .header h1 {
+    font-size: 2em;
+  }
+
+  .nav {
+    gap: 8px;
+  }
+
+  .nav button {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
 }
 </style>
