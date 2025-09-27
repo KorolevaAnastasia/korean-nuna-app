@@ -62,14 +62,16 @@
 
     <div v-else class="welcome">
       <h2>Добро пожаловать в режим карточек!</h2>
-      <p>Выберите режим обучения и нажмите "Начать обучение"</p>
+      <p>Выберите режим обучения и нажмите "Начать обучение".</p>
+      <p v-if="isLoading">Загрузка слов...</p>
+      <p v-if="!isLoading">Всего загружено: {{shuffledWords.length}}.</p>
     </div>
   </div>
 </template>
 
 <script>
 import {computed, onMounted, ref, watch} from 'vue'
-import {koreanWords} from '../data/words.js'
+import { getKoreanWords } from '../data/words.js'
 
 export default {
   name: 'Flashcards',
@@ -85,9 +87,16 @@ export default {
     const currentDirection = ref('korean-to-russian')
     const autoProgress = ref(0)
     const autoNextTimer = ref(null)
+    const isLoading = ref(true)
 
-    onMounted(() => {
-      words.value = koreanWords || []
+    onMounted(async () => {
+      try {
+        words.value = await getKoreanWords()
+      } catch (error) {
+        console.error('Ошибка загрузки слов:', error)
+      } finally {
+        isLoading.value = false
+      }
     })
 
     const shuffledWords = computed(() => {
@@ -254,7 +263,8 @@ export default {
       autoProgress,
       startQuiz,
       checkAnswer,
-      nextCard
+      nextCard,
+      isLoading
     }
   }
 }

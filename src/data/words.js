@@ -1,4 +1,6 @@
-export const koreanWords = [
+import { sheetService } from '../utils/sheetService.js';
+
+export const localKoreanWords = [
         { id:1, korean: '그럼', russian: 'ладно', category: 'Межд.' },
         { id:2, korean: '날짜', russian: 'дата', category: 'Сущ.' },
         { id:3, korean: '더', russian: 'ещё', category: 'Нареч.' },
@@ -533,4 +535,28 @@ export const koreanWords = [
         { id:532, korean: '힘들다', russian: 'тяжёлый', category: 'Прил.' }
 ];
 
-export const AUTH_PASSWORD = "korean123!";
+export async function getKoreanWords() {
+        try {
+                const sheetWords = await sheetService.getWords();
+
+                if (sheetWords && sheetWords.length > 0) {
+                        console.log(`Загружено ${sheetWords.length} слов из Google Sheets`);
+                        return sheetWords;
+                } else {
+                        console.log('Используем локальные слова');
+                        return localKoreanWords;
+                }
+        } catch (error) {
+                console.error('Ошибка при загрузке слов:', error);
+                return localKoreanWords;
+        }
+}
+
+// Для обратной совместимости оставляем старый экспорт
+export let koreanWords = localKoreanWords;
+
+// Функция для инициализации (вызывается в компонентах)
+export async function initializeWords() {
+        koreanWords = await getKoreanWords();
+        return koreanWords;
+}

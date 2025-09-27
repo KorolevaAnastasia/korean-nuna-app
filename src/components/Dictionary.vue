@@ -2,6 +2,8 @@
   <div class="dictionary">
     <div class="header">
       <h2>📚 Корейско-русский словарь</h2>
+      <div v-if="isLoading" class="loading">Загрузка слов...</div>
+      <div v-if="!isLoading">Всего загружено: {{filteredWords.length}}.</div>
       <input
           v-model="searchQuery"
           placeholder="Поиск слов..."
@@ -36,7 +38,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import { koreanWords } from '../data/words.js'
+import { getKoreanWords } from '../data/words.js'
 
 export default {
   name: 'Dictionary',
@@ -44,9 +46,17 @@ export default {
     const searchQuery = ref('')
     const categoryFilter = ref('')
     const words = ref([])
+    const isLoading = ref(true)
 
-    onMounted(() => {
-      words.value = koreanWords || []
+    onMounted(async () => {
+      try {
+        words.value = await getKoreanWords()
+      } catch (error) {
+        console.error('Ошибка загрузки слов:', error)
+        // words.value останется пустым массивом, что вызовет показ fallback
+      } finally {
+        isLoading.value = false
+      }
     })
 
     const categories = computed(() => {
@@ -70,7 +80,8 @@ export default {
       searchQuery,
       categoryFilter,
       filteredWords,
-      categories
+      categories,
+      isLoading
     }
   }
 }
@@ -163,4 +174,11 @@ export default {
   font-size: 18px;
   padding: 40px;
 }
+
+.loading {
+  color: white;
+  font-size: 16px;
+  margin: 10px 0;
+}
+
 </style>
