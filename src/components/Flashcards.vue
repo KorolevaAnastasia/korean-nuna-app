@@ -31,7 +31,9 @@
     </div>
 
     <div v-else-if="quizMode === 'matching' && quizStarted" class="matching-game">
-      <p class="matching-hint">Сопоставьте корейские слова с русскими</p>
+      <h3>Сопоставьте корейские слова с русскими переводами:</h3>
+      <p class="matching-hint">Кликните на корейское слово, затем на русский перевод</p>
+
       <div class="matching-container">
         <div class="words-column korean-column">
           <h4>Корейские</h4>
