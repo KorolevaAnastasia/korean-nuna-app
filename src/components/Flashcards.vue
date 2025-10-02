@@ -5,16 +5,25 @@
         <option value="korean-to-russian">Корейский → Русский</option>
         <option value="russian-to-korean">Русский → Корейский</option>
         <option value="mixed">Смешанный режим</option>
-        <option value="matching">Сопоставление</option>
       </select>
 
       <div class="mode-switcher">
         <label class="mode-label">
-          <input type="radio" v-model="studyMode" value="all" @change="onModeChange">
+          <input
+              type="radio"
+              v-model="studyMode"
+              value="all"
+              @change="onModeChange"
+          >
           Все слова
         </label>
         <label class="mode-label">
-          <input type="radio" v-model="studyMode" value="recent" @change="onModeChange">
+          <input
+              type="radio"
+              v-model="studyMode"
+              value="recent"
+              @change="onModeChange"
+          >
           Последние 20 слов
         </label>
       </div>
@@ -22,102 +31,11 @@
       <button @click="startQuiz" class="btn-start">{{ quizStarted ? 'Перезапустить' : 'Начать обучение' }}</button>
     </div>
 
-    <!-- Блок приветствия -->
-    <div v-if="!quizStarted" class="welcome">
-      <h2>Добро пожаловать в режим карточек!</h2>
-      <p>Выберите режим обучения и нажмите "Начать обучение".</p>
-      <p v-if="isLoading">Загрузка слов...</p>
-      <p v-if="!isLoading">Всего загружено: {{ shuffledWords.length }}.</p>
+    <div v-if="studyMode === 'recent' && !quizStarted" class="mode-info">
+      <p>📖 Будет показано последних 20 слов для повторения</p>
     </div>
 
-    <!-- РЕЖИМ СОПОСТАВЛЕНИЯ -->
-    <div v-else-if="quizMode === 'matching' && quizStarted" class="matching-game">
-      <h3>🎯 Сопоставьте корейские слова с русскими переводами:</h3>
-      <p class="matching-hint">Кликните на корейское слово, затем на русский перевод</p>
-
-      <div class="matching-container">
-        <!-- Корейские слова слева -->
-        <div class="words-column korean-column">
-          <h4>Корейские слова</h4>
-          <div
-              v-for="(word, index) in matchingGame.koreanWords"
-              :key="'korean-' + index"
-              :class="{
-              'word-item': true,
-              'selected': selectedKorean === index,
-              'matched': matchingGame.matchedPairs.korean[index],
-              'correct': getConnectionStatus(index, 'korean') === 'correct',
-              'incorrect': getConnectionStatus(index, 'korean') === 'incorrect'
-            }"
-              @click="selectKorean(index)"
-          >
-            {{ word.korean }}
-            <span v-if="matchingGame.matchedPairs.korean[index]" class="check-mark">✅</span>
-          </div>
-        </div>
-
-        <!-- Русские слова справа -->
-        <div class="words-column russian-column">
-          <h4>Русские переводы</h4>
-          <div
-              v-for="(word, index) in matchingGame.russianWords"
-              :key="'russian-' + index"
-              :class="{
-              'word-item': true,
-              'selected': selectedRussian === index,
-              'matched': matchingGame.matchedPairs.russian[index],
-              'correct': getConnectionStatus(index, 'russian') === 'correct',
-              'incorrect': getConnectionStatus(index, 'russian') === 'incorrect'
-            }"
-              @click="selectRussian(index)"
-          >
-            {{ word.russian }}
-            <span v-if="matchingGame.matchedPairs.russian[index]" class="check-mark">✅</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Показываем текущие связи -->
-      <div class="current-connections">
-        <p v-if="Object.keys(matchingGame.userConnections).length > 0">
-          📍 Созданные связи: {{ Object.keys(matchingGame.userConnections).length }}/4
-        </p>
-        <p v-else class="hint-text">Выберите корейское слово, затем его русский перевод</p>
-      </div>
-
-      <!-- Управление -->
-      <div class="matching-controls">
-        <button
-            @click="checkMatching"
-            :disabled="Object.keys(matchingGame.userConnections).length !== 4"
-            class="btn-check"
-        >
-          Проверить ({{ Object.keys(matchingGame.userConnections).length }}/4)
-        </button>
-
-        <button @click="resetMatching" class="btn-reset">
-          🔄 Сбросить все
-        </button>
-      </div>
-
-      <!-- Результат -->
-      <div v-if="showMatchingResult" class="matching-result">
-        <p v-if="isMatchingCorrect" class="correct-message">
-          ✅ Все правильно! Переходим к следующему набору слов...
-        </p>
-        <p v-else class="incorrect-message">
-          ❌ Есть ошибки. Исправьте неправильные связи (они выделены красным) и попробуйте снова.
-        </p>
-
-        <button v-if="isMatchingCorrect" @click="nextCard" class="btn-next">
-          Следующий набор слов
-        </button>
-      </div>
-    </div>
-
-    <!-- ОБЫЧНЫЙ РЕЖИМ КАРТОЧЕК -->
-    <div v-else-if="quizStarted && currentCard && quizMode !== 'matching'" class="card-container">
-      <!-- Весь существующий код карточек -->
+    <div v-if="currentCard && quizStarted" class="card-container">
       <div class="card">
         <div class="card-content">
           <h2 class="question">{{ currentQuestion }}</h2>
@@ -153,28 +71,30 @@
           </div>
         </div>
       </div>
+
+      <div class="progress">
+        <div class="progress-info">
+          Режим: {{ studyMode === 'recent' ? 'Последние 20 слов' : 'Все слова' }}
+          (всего: {{ wordsCount }})
+        </div>
+        Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Сообщение о завершении -->
     <div v-else-if="quizStarted" class="quiz-finished">
       <h2>🎉 Отлично! Вы завершили обучение!</h2>
       <p>Правильных ответов: {{ correctAnswers }} из {{ shuffledWords.length }}</p>
       <button @click="startQuiz" class="btn-restart">Начать заново</button>
     </div>
 
-    <!-- Прогресс -->
-    <div v-if="quizStarted" class="progress">
-      <div class="progress-info">
-        Режим:
-        <span v-if="quizMode === 'matching'">🎯 Сопоставление (4 слова)</span>
-        <span v-else-if="studyMode === 'recent'">Последние 20 слов</span>
-        <span v-else>Все слова</span>
-        (всего: {{ wordsCount }})
-      </div>
-      Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
-      </div>
+    <div v-else class="welcome">
+      <h2>Добро пожаловать в режим карточек!</h2>
+      <p>Выберите режим обучения и нажмите "Начать обучение".</p>
+      <p v-if="isLoading">Загрузка слов...</p>
+      <p v-if="!isLoading">Всего загружено: {{ shuffledWords.length }}.</p>
     </div>
   </div>
 </template>
@@ -199,18 +119,6 @@ export default {
     const autoNextTimer = ref(null)
     const isLoading = ref(true)
     const studyMode = ref('all')
-    const selectedKorean = ref(null)
-    const selectedRussian = ref(null)
-    const showMatchingResult = ref(false)
-    const isMatchingCorrect = ref(false)
-
-    const matchingGame = ref({
-      koreanWords: [],
-      russianWords: [],
-      correctPairs: {},
-      userConnections: {},
-      matchedPairs: { korean: {}, russian: {} }
-    })
 
     onMounted(async () => {
       try {
@@ -221,138 +129,6 @@ export default {
         isLoading.value = false
       }
     })
-
-    const initMatchingGame = () => {
-      // Берем 4 случайных слова из всего словаря
-      const gameWords = [...words.value]
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 4)
-
-      console.log('Selected words for matching:', gameWords) // Для отладки
-
-      // Перемешиваем отдельно корейские и русские слова
-      matchingGame.value.koreanWords = [...gameWords].sort(() => Math.random() - 0.5)
-      matchingGame.value.russianWords = [...gameWords].sort(() => Math.random() - 0.5)
-
-      // Создаем правильные пары (какое корейское слово соответствует какому русскому)
-      matchingGame.value.correctPairs = {}
-      gameWords.forEach(word => {
-        const koreanIndex = matchingGame.value.koreanWords.findIndex(w => w.id === word.id)
-        const russianIndex = matchingGame.value.russianWords.findIndex(w => w.id === word.id)
-        if (koreanIndex !== -1 && russianIndex !== -1) {
-          matchingGame.value.correctPairs[koreanIndex] = russianIndex
-        }
-      })
-
-      console.log('Correct pairs:', matchingGame.value.correctPairs) // Для отладки
-
-      // Сбрасываем состояние
-      matchingGame.value.userConnections = {}
-      matchingGame.value.matchedPairs = { korean: {}, russian: {} }
-      selectedKorean.value = null
-      selectedRussian.value = null
-      showMatchingResult.value = false
-      isMatchingCorrect.value = false
-    }
-
-    const selectKorean = (index) => {
-      if (matchingGame.value.matchedPairs.korean[index]) return
-      selectedKorean.value = index
-      tryCreateConnection()
-    }
-
-    const selectRussian = (index) => {
-      if (matchingGame.value.matchedPairs.russian[index]) return
-      selectedRussian.value = index
-      tryCreateConnection()
-    }
-
-    const tryCreateConnection = () => {
-      if (selectedKorean.value !== null && selectedRussian.value !== null) {
-        const connectionId = `${selectedKorean.value}-${selectedRussian.value}`
-
-        // Проверяем, не создана ли уже связь для этих слов
-        const koreanAlreadyConnected = Object.values(matchingGame.value.userConnections)
-            .some(conn => conn.koreanIndex === selectedKorean.value)
-        const russianAlreadyConnected = Object.values(matchingGame.value.userConnections)
-            .some(conn => conn.russianIndex === selectedRussian.value)
-
-        if (!koreanAlreadyConnected && !russianAlreadyConnected) {
-          matchingGame.value.userConnections[connectionId] = {
-            koreanIndex: selectedKorean.value,
-            russianIndex: selectedRussian.value,
-            correct: matchingGame.value.correctPairs[selectedKorean.value] === selectedRussian.value,
-            checked: false
-          }
-        }
-
-        // Сбрасываем выбор
-        selectedKorean.value = null
-        selectedRussian.value = null
-      }
-    }
-
-    const getConnectionStatus = (index, type) => {
-      if (!showMatchingResult.value) return ''
-
-      if (type === 'korean') {
-        const connection = Object.values(matchingGame.value.userConnections)
-            .find(conn => conn.koreanIndex === index)
-        if (connection && connection.checked) {
-          return connection.correct ? 'correct' : 'incorrect'
-        }
-      } else {
-        const connection = Object.values(matchingGame.value.userConnections)
-            .find(conn => conn.russianIndex === index)
-        if (connection && connection.checked) {
-          return connection.correct ? 'correct' : 'incorrect'
-        }
-      }
-      return ''
-    }
-
-// Обновляем проверку связей
-    const checkMatching = () => {
-      let allCorrect = true
-
-      // Проверяем каждую связь
-      Object.keys(matchingGame.value.userConnections).forEach(connectionId => {
-        const connection = matchingGame.value.userConnections[connectionId]
-        connection.checked = true
-
-        // Проверяем, правильная ли связь
-        const isCorrect = matchingGame.value.correctPairs[connection.koreanIndex] === connection.russianIndex
-        connection.correct = isCorrect
-
-        if (!isCorrect) {
-          allCorrect = false
-        } else {
-          // Помечаем слова как правильно сопоставленные
-          matchingGame.value.matchedPairs.korean[connection.koreanIndex] = true
-          matchingGame.value.matchedPairs.russian[connection.russianIndex] = true
-        }
-      })
-
-      showMatchingResult.value = true
-      isMatchingCorrect.value = allCorrect
-
-      if (allCorrect) {
-        correctAnswers.value++
-        // Автопереход через 2 секунды
-        setTimeout(() => {
-          nextCard()
-        }, 2000)
-      }
-    }
-
-// Сброс связей
-    const resetMatching = () => {
-      matchingGame.value.userConnections = {}
-      matchingGame.value.matchedPairs = { korean: {}, russian: {} }
-      selectedKorean.value = null
-      selectedRussian.value = null
-      showMatchingResult.value = false
-    }
 
     const currentWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
@@ -459,13 +235,7 @@ export default {
       selectedOption.value = null
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
-
-      // Инициализируем соответствующий режим
-      if (quizMode.value === 'matching') {
-        initMatchingGame()
-      } else {
-        currentDirection.value = getCurrentDirection()
-      }
+      currentDirection.value = getCurrentDirection()
     }
 
     const checkAnswer = (correct, index) => {
@@ -504,25 +274,17 @@ export default {
       selectedOption.value = null
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
-      showMatchingResult.value = false
 
       if (currentIndex.value < shuffledWords.value.length - 1) {
         currentIndex.value++
-        // Если режим сопоставления - инициализируем новую игру
-        if (quizMode.value === 'matching') {
-          initMatchingGame()
-        }
       } else {
         quizStarted.value = false
       }
     }
 
-    watch(quizMode, (newMode) => {
+    watch(quizMode, () => {
       if (quizStarted.value) {
-        if (newMode === 'matching') {
-          initMatchingGame()
-        }
-        // Для других режимов ничего не делаем - они работают как есть
+        startQuiz()
       }
     })
 
@@ -554,16 +316,6 @@ export default {
       isLoading,
       studyMode,
       onModeChange,
-      selectedKorean,
-      matchingGame,
-      getConnectionStatus,
-      selectKorean,
-      selectedRussian,
-      selectRussian,
-      isMatchingCorrect,
-      showMatchingResult,
-      checkMatching,
-      resetMatching,
       wordsCount: computed(() => currentWords.value.length)
     }
   }
@@ -905,175 +657,6 @@ export default {
   }
   100% {
     transform: scale(1.02);
-  }
-}
-.matching-game {
-  text-align: center;
-  color: white;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.matching-hint {
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 20px;
-  font-style: italic;
-}
-
-.matching-container {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 40px;
-  margin: 30px 0;
-  min-height: 400px;
-}
-
-.words-column h4 {
-  margin-bottom: 20px;
-  color: #ffeb3b;
-  font-size: 18px;
-}
-
-.words-column {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  min-width: 200px;
-}
-
-.word-item {
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  font-size: 16px;
-  min-height: 70px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  position: relative;
-}
-
-.word-item:hover:not(.matched) {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  border-color: #ffeb3b;
-}
-
-.word-item.selected {
-  background: rgba(255, 235, 59, 0.3);
-  border-color: #ffeb3b;
-  transform: scale(1.05);
-}
-
-.word-item.matched {
-  background: rgba(76, 175, 80, 0.3);
-  border-color: #4CAF50;
-  cursor: not-allowed;
-}
-
-.word-item.correct {
-  background: rgba(76, 175, 80, 0.4);
-  border-color: #4CAF50;
-}
-
-.word-item.incorrect {
-  background: rgba(244, 67, 54, 0.4);
-  border-color: #f44336;
-}
-
-.check-mark {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.current-connections {
-  margin: 20px 0;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.hint-text {
-  font-style: italic;
-  opacity: 0.7;
-}
-
-.matching-controls {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  margin: 25px 0;
-}
-
-.btn-check, .btn-reset {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 10px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: bold;
-}
-
-.btn-check {
-  background: #4CAF50;
-  color: white;
-}
-
-.btn-check:disabled {
-  background: #666;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.btn-check:hover:not(:disabled) {
-  background: #45a049;
-  transform: translateY(-2px);
-}
-
-.btn-reset {
-  background: #ff9800;
-  color: white;
-}
-
-.btn-reset:hover {
-  background: #e68900;
-  transform: translateY(-2px);
-}
-
-.matching-result {
-  margin-top: 20px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  backdrop-filter: blur(10px);
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .matching-container {
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-  }
-
-  .words-column {
-    min-width: 280px;
-  }
-
-  .matching-controls {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .btn-check, .btn-reset {
-    width: 250px;
   }
 }
 </style>
