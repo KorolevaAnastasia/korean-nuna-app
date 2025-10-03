@@ -7,6 +7,13 @@
         <option value="mixed">Смешанный режим</option>
       </select>
 
+      <select v-model="categoryFilter" class="mode-select">
+        <option value="">Все категории</option>
+        <option v-for="category in categories" :key="category" :value="category">
+          {{ category }}
+        </option>
+      </select>
+
       <div class="mode-switcher">
         <label class="mode-label">
           <input
@@ -33,6 +40,10 @@
 
     <div v-if="studyMode === 'recent' && !quizStarted" class="mode-info">
       <p>📖 Будет показано последних 20 слов для повторения</p>
+    </div>
+
+    <div v-if="categoryFilter && !quizStarted" class="mode-info">
+      <p>🎯 Выбрана категория: "{{ categoryFilter }}"</p>
     </div>
 
     <div v-if="currentCard && quizStarted" class="card-container">
@@ -75,6 +86,7 @@
       <div class="progress">
         <div class="progress-info">
           Режим: {{ studyMode === 'recent' ? 'Последние 20 слов' : 'Все слова' }}
+          | Категория: {{ categoryFilter || 'Все' }}
           (всего: {{ wordsCount }})
         </div>
         Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
@@ -84,17 +96,12 @@
       </div>
     </div>
 
-    <div v-else-if="quizStarted" class="quiz-finished">
-      <h2>🎉 Отлично! Вы завершили обучение!</h2>
-      <p>Правильных ответов: {{ correctAnswers }} из {{ shuffledWords.length }}</p>
-      <button @click="startQuiz" class="btn-restart">Начать заново</button>
-    </div>
-
     <div v-else class="welcome">
       <h2>Добро пожаловать в режим карточек!</h2>
       <p>Выберите режим обучения и нажмите "Начать обучение".</p>
       <p v-if="isLoading">Загрузка слов...</p>
-      <p v-if="!isLoading">Всего загружено: {{ shuffledWords.length }}.</p>
+      <p v-if="!isLoading">Всего загружено: {{ words.length }} слов.</p>
+      <p v-if="!isLoading && categories.length > 0">Доступно категорий: {{ categories.length }}</p>
     </div>
   </div>
 </template>
@@ -119,6 +126,7 @@ export default {
     const autoNextTimer = ref(null)
     const isLoading = ref(true)
     const studyMode = ref('all')
+    const categoryFilter = ref('')
 
     onMounted(async () => {
       try {
@@ -130,15 +138,33 @@ export default {
       }
     })
 
-    const currentWords = computed(() => {
+    const categories = computed(() => {
+      if (!words.value || words.value.length === 0) return []
+      return [...new Set(words.value.map(word => word.category))].sort()
+    })
+
+    const filteredWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
 
+      let filtered = words.value
+
+      // Применяем фильтр по категории
+      if (categoryFilter.value) {
+        filtered = filtered.filter(word => word.category === categoryFilter.value)
+      }
+
+      return filtered
+    })
+
+    const currentWords = computed(() => {
+      if (!filteredWords.value || filteredWords.value.length === 0) return []
+
       if (studyMode.value === 'recent') {
-        // Берем последние 20 слов
-        return words.value.slice(-20)
+        // Берем последние 20 слов из отфильтрованных
+        return filteredWords.value.slice(-20)
       } else {
-        // Все слова
-        return words.value
+        // Все отфильтрованные слова
+        return filteredWords.value
       }
     })
 
@@ -193,8 +219,8 @@ export default {
 
       const correct = correctAnswer.value
 
-      // Получаем все возможные варианты переводов (исключая текущее слово)
-      const allOtherWords = words.value
+      // Получаем все возможные варианты переводов из отфильтрованных слов (исключая текущее слово)
+      const allOtherWords = filteredWords.value
           .filter(word => word.id !== currentCard.value.id)
           .map(word => {
             return currentDirection.value === 'korean-to-russian'
@@ -221,10 +247,9 @@ export default {
       return allOptions.sort(() => Math.random() - 0.5)
     })
 
-
     const startQuiz = () => {
       if (currentWords.value.length === 0) {
-        alert('Нет слов для обучения!')
+        alert('Нет слов для обучения в выбранной категории!')
         return
       }
 
@@ -282,7 +307,7 @@ export default {
       }
     }
 
-    watch(quizMode, () => {
+    watch([quizMode, categoryFilter], () => {
       if (quizStarted.value) {
         startQuiz()
       }
@@ -316,13 +341,26 @@ export default {
       isLoading,
       studyMode,
       onModeChange,
-      wordsCount: computed(() => currentWords.value.length)
+      categoryFilter,
+      categories,
+      wordsCount: computed(() => currentWords.value.length),
+      words
     }
   }
 }
 </script>
 
 <style scoped>
+/* Стили остаются такими же, только добавим немного отступов для нового селекта */
+.controls {
+  margin-bottom: 30px;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .mode-switcher {
   display: flex;
   gap: 15px;
@@ -368,6 +406,26 @@ export default {
   font-size: 16px;
 }
 
+.mode-select {
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+  background: transparent;
+  color: white;
+}
+
+.mode-select option {
+  background: transparent;
+  color: #333;
+  padding: 10px;
+}
+
+.mode-select option:hover {
+  background: #667eea;
+  color: white;
+}
+
 @media (max-width: 768px) {
   .controls {
     flex-direction: column;
@@ -380,6 +438,7 @@ export default {
   }
 }
 
+/* Остальные стили остаются без изменений */
 .progress {
   margin-top: 20px;
   color: white;
@@ -401,15 +460,6 @@ export default {
   text-align: center;
 }
 
-.controls {
-  margin-bottom: 30px;
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
 .btn-start, .btn-restart {
   background: #4CAF50;
   color: white;
@@ -424,26 +474,6 @@ export default {
 .btn-start:hover, .btn-restart:hover {
   background: #45a049;
   transform: translateY(-2px);
-}
-
-.mode-select {
-  padding: 12px;
-  border: 2px solid #ddd;
-  border-radius: 10px;
-  font-size: 16px;
-  background: transparent;
-  color: white;
-}
-
-.mode-select option {
-  background: transparent;
-  color: #333;
-  padding: 10px;
-}
-
-.mode-select option:hover {
-  background: #667eea;
-  color: white;
 }
 
 .card-container {
@@ -597,13 +627,6 @@ export default {
   background: #4CAF50;
   transition: width 0.05s linear;
   border-radius: 3px;
-}
-
-.progress {
-  margin-top: 20px;
-  color: white;
-  font-size: 18px;
-  font-weight: bold;
 }
 
 .progress-bar {
