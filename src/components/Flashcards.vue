@@ -460,7 +460,7 @@ export default {
   text-align: center;
 }
 
-.btn-start, .btn-restart {
+.btn-start {
   background: #4CAF50;
   color: white;
   padding: 12px 24px;
@@ -471,7 +471,7 @@ export default {
   transition: all 0.3s ease;
 }
 
-.btn-start:hover, .btn-restart:hover {
+.btn-start:hover {
   background: #45a049;
   transform: translateY(-2px);
 }
@@ -646,7 +646,7 @@ export default {
   border-radius: 5px;
 }
 
-.quiz-finished, .welcome {
+.welcome {
   background: rgba(255, 255, 255, 0.1);
   padding: 40px;
   border-radius: 10px;
