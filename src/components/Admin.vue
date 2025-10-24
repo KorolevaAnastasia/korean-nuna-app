@@ -19,42 +19,35 @@
       </div>
 
       <div v-else class="admin-content">
-        <div class="success-message">
-          ✅ Доступ разрешен! Вот ссылка на таблицу:
-        </div>
+        <div class="words-management">
+          <h3>📝 Управление словами</h3>
 
-        <div class="link-container">
-          <a
-              :href="sheetUrl"
-              target="_blank"
-              class="sheet-link"
-          >
-            📊 Открыть Google Таблицу
-          </a>
+          <!-- Форма добавления слова -->
+          <div class="add-word-form">
+            <input v-model="newWord.korean" placeholder="Корейское слово" class="word-input">
+            <input v-model="newWord.russian" placeholder="Русский перевод" class="word-input">
+            <input v-model="newWord.category" placeholder="Категория" class="word-input">
+            <button @click="addWord" class="add-btn">➕ Добавить</button>
+          </div>
 
-          <button @click="copyLink" class="copy-btn">
-            {{ copySuccess ? '✓ Скопировано!' : '📋 Копировать ссылку' }}
-          </button>
-        </div>
-
-        <div class="admin-info">
-          <h3>Информация о таблице:</h3>
-          <ul>
-            <li>📍 Формат: ID | Корейский | Русский | Категория</li>
-            <li>💾 Изменения сохраняются автоматически</li>
-            <li>🔄 Приложение обновит слова через 30 минут</li>
-            <li>📱 Можно редактировать с телефона/компьютера</li>
-          </ul>
-        </div>
-
-        <button @click="logout" class="logout-btn">Выйти</button>
+          <!-- Список слов -->
+          <div class="words-list">
+            <div v-for="word in words" :key="word.id" class="word-item">
+              <input v-model="word.korean" @blur="updateWord(word)" class="word-edit">
+              <input v-model="word.russian" @blur="updateWord(word)" class="word-edit">
+              <input v-model="word.category" @blur="updateWord(word)" class="word-edit">
+              <button @click="deleteWord(word.id)" class="delete-btn">🗑️</button>
+            </div>
+          </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { apiService } from '../utils/apiService.js'
 
 export default {
   name: 'Admin',
@@ -63,12 +56,17 @@ export default {
     const isAuthenticated = ref(false)
     const error = ref('')
     const copySuccess = ref(false)
+    const words = ref([])
+    const newWord = ref({ korean: '', russian: '', category: '' })
+    const correctPassword = 'KoreanPass321!'
 
-    // Пароль можно изменить здесь (простой пароль для удобства)
-    const correctPassword = 'KoreanPass321!' // Понятное дело, что его всем видно)
-
-    // Ссылка на вашу Google таблицу
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1IU-DQd4hW96SkbAE5YJFcUnRn4YiYYrZolOs3teM8uQ/edit?gid=0#gid=0'
+    // Загружаем слова при монтировании
+    onMounted(async () => {
+      if (sessionStorage.getItem('adminAuthenticated') === 'true') {
+        isAuthenticated.value = true
+        await loadWords()
+      }
+    })
 
     const login = () => {
       if (password.value.trim() === correctPassword) {
@@ -88,42 +86,63 @@ export default {
       sessionStorage.removeItem('adminAuthenticated')
     }
 
-    const copyLink = async () => {
+    const loadWords = async () => {
       try {
-        await navigator.clipboard.writeText(sheetUrl)
-        copySuccess.value = true
-        setTimeout(() => {
-          copySuccess.value = false
-        }, 2000)
-      } catch (err) {
-        // Fallback для старых браузеров
-        const textArea = document.createElement('textarea')
-        textArea.value = sheetUrl
-        document.body.appendChild(textArea)
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
-        copySuccess.value = true
-        setTimeout(() => {
-          copySuccess.value = false
-        }, 2000)
+        words.value = await apiService.getWords()
+      } catch (error) {
+        console.error('Ошибка загрузки слов:', error)
       }
     }
 
-    // Проверяем, не авторизован ли пользователь уже
     if (sessionStorage.getItem('adminAuthenticated') === 'true') {
       isAuthenticated.value = true
     }
 
+    const addWord = async () => {
+      if (newWord.value.korean && newWord.value.russian) {
+        try {
+          await apiService.addWord(newWord.value)
+          newWord.value = { korean: '', russian: '', category: '' }
+          await loadWords()
+        } catch (error) {
+          console.error('Ошибка добавления слова:', error)
+        }
+      }
+    }
+
+    const updateWord = async (word) => {
+      try {
+        await apiService.updateWord(word.id, word)
+      } catch (error) {
+        console.error('Ошибка обновления слова:', error)
+      }
+    }
+
+    const deleteWord = async (id) => {
+      if (confirm('Удалить это слово?')) {
+        try {
+          await apiService.deleteWord(id)
+          await loadWords()
+        } catch (error) {
+          console.error('Ошибка удаления слова:', error)
+        }
+      }
+    }
+
+    // Существующие методы login, logout, copyLink остаются без изменений
+
     return {
+      logout,
+      login,
+      words,
+      newWord,
+      addWord,
+      updateWord,
+      deleteWord,
       password,
       isAuthenticated,
       error,
       copySuccess,
-      sheetUrl,
-      login,
-      logout,
-      copyLink
     }
   }
 }

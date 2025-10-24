@@ -107,8 +107,8 @@
 </template>
 
 <script>
-import {computed, onMounted, ref, watch} from 'vue'
-import {getKoreanWords} from '../data/words.js'
+import { computed, onMounted, ref, watch } from 'vue'
+import { apiService } from '../utils/apiService.js'
 
 export default {
   name: 'Flashcards',
@@ -130,7 +130,7 @@ export default {
 
     onMounted(async () => {
       try {
-        words.value = await getKoreanWords()
+        words.value = await apiService.getWords()
       } catch (error) {
         console.error('Ошибка загрузки слов:', error)
       } finally {

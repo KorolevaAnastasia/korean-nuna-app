@@ -38,7 +38,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import { getKoreanWords } from '../data/words.js'
+import { apiService } from '../utils/apiService.js'
 
 export default {
   name: 'Dictionary',
@@ -50,10 +50,9 @@ export default {
 
     onMounted(async () => {
       try {
-        words.value = await getKoreanWords()
+        words.value = await apiService.getWords()
       } catch (error) {
         console.error('Ошибка загрузки слов:', error)
-        // words.value останется пустым массивом, что вызовет показ fallback
       } finally {
         isLoading.value = false
       }
