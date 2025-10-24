@@ -20,33 +20,119 @@
 
       <div v-else class="admin-content">
         <div class="words-management">
-          <h3>📝 Управление словами</h3>
-
-          <!-- Форма добавления слова -->
-          <div class="add-word-form">
-            <input v-model="newWord.korean" placeholder="Корейское слово" class="word-input">
-            <input v-model="newWord.russian" placeholder="Русский перевод" class="word-input">
-            <input v-model="newWord.category" placeholder="Категория" class="word-input">
-            <button @click="addWord" class="add-btn">➕ Добавить</button>
+          <div class="add-word-card">
+            <h4>Добавить новое слово</h4>
+            <div class="form-grid">
+              <div class="input-field">
+                <label>Корейское слово</label>
+                <input
+                    v-model="newWord.korean"
+                    placeholder="Введите корейское слово"
+                    class="form-input"
+                    @keyup.enter="addWord"
+                >
+              </div>
+              <div class="input-field">
+                <label>Русский перевод</label>
+                <input
+                    v-model="newWord.russian"
+                    placeholder="Введите перевод"
+                    class="form-input"
+                    @keyup.enter="addWord"
+                >
+              </div>
+              <div class="input-field">
+                <label>Часть речи</label>
+                <input
+                    v-model="newWord.category"
+                    placeholder="Например: Сущ."
+                    class="form-input"
+                    @keyup.enter="addWord"
+                >
+              </div>
+            </div>
+            <button
+                @click="addWord"
+                class="add-word-btn"
+                :disabled="!isFormValid"
+            >
+              <span class="btn-icon">➕</span>
+              Добавить слово
+            </button>
           </div>
 
-          <!-- Список слов -->
-          <div class="words-list">
-            <div v-for="word in words" :key="word.id" class="word-item">
-              <input v-model="word.korean" @blur="updateWord(word)" class="word-edit">
-              <input v-model="word.russian" @blur="updateWord(word)" class="word-edit">
-              <input v-model="word.category" @blur="updateWord(word)" class="word-edit">
-              <button @click="deleteWord(word.id)" class="delete-btn">🗑️</button>
+          <div class="words-section">
+            <div class="section-header">
+              <h4>Редактирование</h4>
+              <div class="search-box">
+                <input
+                    v-model="searchQuery"
+                    placeholder="Поиск по словам..."
+                    class="search-input"
+                >
+                <span class="search-icon">🔍</span>
+              </div>
+            </div>
+
+            <div class="words-table">
+              <div class="table-header">
+                <div class="col-korean">Корейский</div>
+                <div class="col-russian">Русский</div>
+                <div class="col-category">Категория</div>
+                <div class="col-actions">Действия</div>
+              </div>
+
+              <div
+                  v-for="word in filteredWords"
+                  :key="word.id"
+                  class="table-row"
+              >
+                <div class="col-korean">
+                  <input
+                      v-model="word.korean"
+                      @blur="updateWord(word)"
+                      class="table-input"
+                  >
+                </div>
+                <div class="col-russian">
+                  <input
+                      v-model="word.russian"
+                      @blur="updateWord(word)"
+                      class="table-input"
+                  >
+                </div>
+                <div class="col-category">
+                  <input
+                      v-model="word.category"
+                      @blur="updateWord(word)"
+                      class="table-input"
+                  >
+                </div>
+                <div class="col-actions">
+                  <button
+                      @click="deleteWord(word.id)"
+                      class="delete-btn"
+                      title="Удалить слово"
+                  >
+                    <span class="delete-icon">🗑️</span>
+                    Удалить
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="filteredWords.length === 0" class="empty-state">
+                <p>Слова не найдены</p>
+              </div>
             </div>
           </div>
+        </div>
       </div>
-    </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { apiService } from '../utils/apiService.js'
 
 export default {
@@ -55,12 +141,28 @@ export default {
     const password = ref('')
     const isAuthenticated = ref(false)
     const error = ref('')
-    const copySuccess = ref(false)
     const words = ref([])
     const newWord = ref({ korean: '', russian: '', category: '' })
+    const searchQuery = ref('')
     const correctPassword = 'KoreanPass321!'
 
-    // Загружаем слова при монтировании
+    const filteredWords = computed(() => {
+      if (!searchQuery.value.trim()) return words.value
+
+      const query = searchQuery.value.toLowerCase().trim()
+      return words.value.filter(word => {
+        return (
+            (word.korean && word.korean.toLowerCase().includes(query)) ||
+            (word.russian && word.russian.toLowerCase().includes(query)) ||
+            (word.category && word.category.toLowerCase().includes(query))
+        )
+      })
+    })
+
+    const isFormValid = computed(() => {
+      return newWord.value.korean.trim() && newWord.value.russian.trim()
+    })
+
     onMounted(async () => {
       if (sessionStorage.getItem('adminAuthenticated') === 'true') {
         isAuthenticated.value = true
@@ -72,77 +174,86 @@ export default {
       if (password.value.trim() === correctPassword) {
         isAuthenticated.value = true
         error.value = ''
-        // Сохраняем в sessionStorage на время сессии
         sessionStorage.setItem('adminAuthenticated', 'true')
+        loadWords()
       } else {
         error.value = 'Неверный пароль! Попробуйте снова.'
         password.value = ''
       }
     }
 
-    const logout = () => {
-      isAuthenticated.value = false
-      password.value = ''
-      sessionStorage.removeItem('adminAuthenticated')
-    }
-
     const loadWords = async () => {
       try {
         words.value = await apiService.getWords()
-      } catch (error) {
-        console.error('Ошибка загрузки слов:', error)
+        console.log('Загружено слов:', words.value.length)
+      } catch (err) {
+        console.error('Ошибка загрузки слов:', err)
+        error.value = 'Ошибка загрузки слов'
       }
     }
 
-    if (sessionStorage.getItem('adminAuthenticated') === 'true') {
-      isAuthenticated.value = true
+    const handleSearch = () => {
+      // Для отладки
+      console.log('Поисковый запрос:', searchQuery.value)
+      console.log('Отфильтровано слов:', filteredWords.value.length)
     }
 
     const addWord = async () => {
-      if (newWord.value.korean && newWord.value.russian) {
+      if (isFormValid.value) {
         try {
-          await apiService.addWord(newWord.value)
+          await apiService.addWord({
+            korean: newWord.value.korean.trim(),
+            russian: newWord.value.russian.trim(),
+            category: newWord.value.category.trim()
+          })
           newWord.value = { korean: '', russian: '', category: '' }
           await loadWords()
-        } catch (error) {
-          console.error('Ошибка добавления слова:', error)
+        } catch (err) {
+          console.error('Ошибка добавления слова:', err)
+          error.value = 'Ошибка добавления слова'
         }
       }
     }
 
     const updateWord = async (word) => {
       try {
-        await apiService.updateWord(word.id, word)
-      } catch (error) {
-        console.error('Ошибка обновления слова:', error)
+        await apiService.updateWord(word.id, {
+          korean: word.korean.trim(),
+          russian: word.russian.trim(),
+          category: word.category.trim()
+        })
+      } catch (err) {
+        console.error('Ошибка обновления слова:', err)
+        error.value = 'Ошибка обновления слова'
       }
     }
 
     const deleteWord = async (id) => {
-      if (confirm('Удалить это слово?')) {
+      if (confirm('Вы уверены, что хотите удалить это слово?')) {
         try {
           await apiService.deleteWord(id)
           await loadWords()
-        } catch (error) {
-          console.error('Ошибка удаления слова:', error)
+        } catch (err) {
+          console.error('Ошибка удаления слова:', err)
+          error.value = 'Ошибка удаления слова'
         }
       }
     }
 
-    // Существующие методы login, logout, copyLink остаются без изменений
-
     return {
-      logout,
-      login,
-      words,
-      newWord,
-      addWord,
-      updateWord,
-      deleteWord,
       password,
       isAuthenticated,
       error,
-      copySuccess,
+      words,
+      newWord,
+      searchQuery,
+      filteredWords,
+      isFormValid,
+      login,
+      addWord,
+      updateWord,
+      deleteWord,
+      handleSearch
     }
   }
 }
@@ -335,6 +446,314 @@ export default {
 
 .logout-btn:hover {
   background: #c0392b;
+}
+
+.admin-content {
+  width: 100%;
+}
+
+.words-management {
+  width: 100%;
+}
+
+/* Карточка добавления нового слова */
+.add-word-card {
+  background: #f8f9fa;
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  border: 1px solid #e9ecef;
+}
+
+.add-word-card h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.2em;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.input-field {
+  text-align: left;
+}
+
+.input-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+  color: #111111;
+}
+
+.form-input:focus {
+  border-color: #667eea;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.add-word-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 200px;
+  margin-left: auto;
+}
+
+.add-word-btn:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.add-word-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-icon {
+  font-size: 16px;
+}
+
+/* Секция списка слов */
+.words-section {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  flex-direction: column;
+}
+
+.section-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2em;
+}
+
+.search-box {
+  position: relative;
+  width: 300px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 40px 10px 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: #fff;
+  color: #111;
+}
+
+.search-input:focus {
+  border-color: #667eea;
+  outline: none;
+}
+
+.search-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+}
+
+/* Таблица слов */
+.words-table {
+  width: 100%;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 120px;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #667eea;
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 120px;
+  gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e9ecef;
+  align-items: center;
+  transition: background 0.2s ease;
+}
+
+.table-row:hover {
+  background: #f8f9fa;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: transparent;
+  color: #111111;
+}
+
+.table-input:focus {
+  border-color: #667eea;
+  outline: none;
+  background: white;
+}
+
+.col-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.delete-icon {
+  font-size: 14px;
+}
+
+.empty-state {
+  padding: 40px 24px;
+  text-align: center;
+  color: #6c757d;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .add-word-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .col-actions {
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+
+  .table-header {
+    display: none;
+  }
+
+  .table-row {
+    position: relative;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #e9ecef;
+  }
+
+  .table-row::before {
+    content: "Слово";
+    font-weight: 500;
+    color: #667eea;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .add-word-card {
+    padding: 16px;
+  }
+
+  .section-header {
+    padding: 16px;
+  }
+
+  .table-row {
+    padding: 12px;
+  }
+
+  .delete-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* Адаптивность для очень маленьких экранов */
