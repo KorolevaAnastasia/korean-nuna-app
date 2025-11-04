@@ -31,7 +31,7 @@
               value="recent"
               @change="onModeChange"
           >
-          Последние 20 слов
+          Последние 100 слов
         </label>
       </div>
 
@@ -39,7 +39,7 @@
     </div>
 
     <div v-if="studyMode === 'recent' && !quizStarted" class="mode-info">
-      <p>📖 Будет показано последних 20 слов для повторения</p>
+      <p>📖 Будет показано последних 100 слов для повторения</p>
     </div>
 
     <div v-if="categoryFilter && !quizStarted" class="mode-info">
@@ -85,7 +85,7 @@
 
       <div class="progress">
         <div class="progress-info">
-          Режим: {{ studyMode === 'recent' ? 'Последние 20 слов' : 'Все слова' }}
+          Режим: {{ studyMode === 'recent' ? 'Последние 100 слов' : 'Все слова' }}
           | Категория: {{ categoryFilter || 'Все' }}
           (всего: {{ wordsCount }})
         </div>
@@ -160,8 +160,8 @@ export default {
       if (!filteredWords.value || filteredWords.value.length === 0) return []
 
       if (studyMode.value === 'recent') {
-        // Берем последние 20 слов из отфильтрованных
-        return filteredWords.value.slice(-20)
+        // Берем последние 100 слов из отфильтрованных
+        return filteredWords.value.slice(-100)
       } else {
         // Все отфильтрованные слова
         return filteredWords.value
