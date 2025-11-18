@@ -82,19 +82,29 @@ export class SheetService {
 
     // Метод для получения слов (основной интерфейс)
     async getWords() {
+        const sortWordsByIdDesc = (words) => {
+            if (!words || words.length === 0) return words;
+
+            // Сортируем по ID в порядке убывания
+            return words.sort((a, b) => {
+                const idA = parseInt(a.id) || 0;
+                const idB = parseInt(b.id) || 0;
+                return idB - idA; // от большего к меньшему
+            });
+        };
+
         // Пытаемся загрузить из интернета
         const onlineWords = await this.fetchWords();
         if (onlineWords && onlineWords.length > 0) {
-            return onlineWords;
+            return sortWordsByIdDesc(onlineWords);
         }
 
         // Если не получилось, используем кеш
         const cachedWords = this.getCachedWords();
         if (cachedWords && cachedWords.length > 0) {
-            return cachedWords;
+            return sortWordsByIdDesc(cachedWords);
         }
 
-        // Если всё плохо, возвращаем null для использования fallback
         return null;
     }
 }
