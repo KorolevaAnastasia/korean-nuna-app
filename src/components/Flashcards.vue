@@ -161,7 +161,7 @@ export default {
 
       if (studyMode.value === 'recent') {
         // Берем последние 100 слов из отфильтрованных
-        return filteredWords.value.slice(-100)
+        return filteredWords.value.slice(0, 100)
       } else {
         // Все отфильтрованные слова
         return filteredWords.value
