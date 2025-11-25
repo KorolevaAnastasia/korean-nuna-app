@@ -67,13 +67,16 @@ export default {
     const filteredWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
 
-      return words.value.filter(word => {
+      const filtered = words.value.filter(word => {
         const matchesSearch = word.korean.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
             word.russian.toLowerCase().includes(searchQuery.value.toLowerCase())
         const matchesCategory = !categoryFilter.value || word.category === categoryFilter.value
 
         return matchesSearch && matchesCategory
       })
+
+      // Сортируем по ID в порядке убывания
+      return filtered.sort((a, b) => b.id - a.id)
     })
 
     return {
