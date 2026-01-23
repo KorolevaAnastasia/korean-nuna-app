@@ -137,7 +137,6 @@
 
             <div v-if="showResult && !isCorrect" class="result">
               <p class="incorrect-message">❌ Правильный ответ: {{ correctAnswer }}</p>
-              <p class="your-answer">Ваш ответ: {{ userInput }}</p>
               <button @click="nextCard" class="btn-next">Следующая карточка</button>
             </div>
 
