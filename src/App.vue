@@ -4,10 +4,10 @@
       <h1>❤️ Корейский с любовью</h1>
       <nav class="nav">
         <button
-            @click="currentView = 'flashcards'"
-            :class="{ active: currentView === 'flashcards' }"
+            @click="currentView = 'learning'"
+            :class="{ active: currentView === 'learning' }"
         >
-          Карточки
+          Обучение
         </button>
         <button
             @click="currentView = 'dictionary'"
@@ -25,7 +25,7 @@
     </header>
 
     <main class="main">
-      <Flashcards v-if="currentView === 'flashcards'" />
+      <Learning v-if="currentView === 'learning'" />
       <Dictionary v-if="currentView === 'dictionary'" />
       <Admin v-if="currentView === 'admin'" />
     </main>
@@ -34,7 +34,7 @@
 
 <script>
 import { ref } from 'vue'
-import Flashcards from './components/Flashcards.vue'
+import Learning from './components/Learning.vue'
 import Dictionary from './components/Dictionary.vue'
 import Admin from "./components/Admin.vue";
 
@@ -42,11 +42,11 @@ export default {
   name: 'App',
   components: {
     Admin,
-    Flashcards,
+    Learning,
     Dictionary,
   },
   setup() {
-    const currentView = ref('flashcards')
+    const currentView = ref('learning')
 
     return {
       currentView
@@ -56,6 +56,7 @@ export default {
 </script>
 
 <style>
+/* Стили оставляем как были */
 * {
   margin: 0;
   padding: 0;
@@ -66,7 +67,6 @@ body {
   font-family: 'Arial', sans-serif;
   background: linear-gradient(135deg, #66b9ea 0%, #764ba2 100%);
   min-height: 100vh;
-  /* Фиксированный фон, который всегда покрывает весь экран */
   background-attachment: fixed;
   background-size: cover;
 }
@@ -74,7 +74,6 @@ body {
 #app {
   min-height: 100vh;
   padding: 20px;
-  /* Обеспечиваем, чтобы app всегда был не меньше высоты экрана */
   display: flex;
   flex-direction: column;
 }
@@ -82,7 +81,6 @@ body {
 .header {
   text-align: center;
   margin-bottom: 30px;
-  /* Заголовок остается вверху без прокрутки */
   flex-shrink: 0;
 }
 
@@ -91,6 +89,10 @@ body {
   margin-bottom: 20px;
   font-size: 2.5em;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.mode-select > * {
+  color: #1a1a1a;
 }
 
 .nav {
@@ -126,10 +128,8 @@ body {
 .main {
   max-width: 800px;
   margin: 0 auto;
-  /* Основной контент может прокручиваться */
   flex-grow: 1;
   width: 100%;
-  /* Добавляем отступ снизу для лучшего внешнего вида */
   padding-bottom: 20px;
 }
 
@@ -137,7 +137,6 @@ input:focus, select:focus, button:focus {
   outline: 2px solid white;
 }
 
-/* Дополнительные стили для обеспечения корректного отображения на мобильных устройствах */
 @media (max-width: 768px) {
   #app {
     padding: 15px;
