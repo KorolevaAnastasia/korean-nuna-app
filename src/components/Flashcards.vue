@@ -31,7 +31,37 @@
               value="recent"
               @change="onModeChange"
           >
-          Последние 100 слов
+          Последние
+          <input
+              v-model.number="recentCount"
+              type="number"
+              min="1"
+              :max="filteredWords.length"
+              class="count-input"
+              @change="onModeChange"
+          >
+          слов
+        </label>
+      </div>
+
+      <div class="quiz-type-switcher">
+        <label class="mode-label">
+          <input
+              type="radio"
+              v-model="quizType"
+              value="choice"
+              @change="onModeChange"
+          >
+          📝 Выбор ответа
+        </label>
+        <label class="mode-label">
+          <input
+              type="radio"
+              v-model="quizType"
+              value="input"
+              @change="onModeChange"
+          >
+          ⌨️ Ввод ответа
         </label>
       </div>
 
@@ -39,7 +69,7 @@
     </div>
 
     <div v-if="studyMode === 'recent' && !quizStarted" class="mode-info">
-      <p>📖 Будет показано последних 100 слов для повторения</p>
+      <p>📖 Будет показано последних {{ recentCount }} слов для повторения</p>
     </div>
 
     <div v-if="categoryFilter && !quizStarted" class="mode-info">
@@ -50,34 +80,72 @@
       <div class="card">
         <div class="card-content">
           <h2 class="question">{{ currentQuestion }}</h2>
-          <p class="hint">Выберите правильный перевод:</p>
 
-          <div class="options">
-            <button
-                v-for="(option, index) in options"
-                :key="index"
-                @click="checkAnswer(option.isCorrect, index)"
-                :class="{
-                'option-btn': true,
-                'correct': option.isCorrect && showResult,
-                'incorrect': !option.isCorrect && showResult && selectedOption === index,
-                'disabled': showResult,
-              }"
-                :disabled="showResult"
-            >
-              {{ option.text }}
-            </button>
+          <!-- Режим выбора ответа -->
+          <div v-if="quizType === 'choice'">
+            <p class="hint">Выберите правильный перевод:</p>
+            <div class="options">
+              <button
+                  v-for="(option, index) in options"
+                  :key="index"
+                  @click="checkAnswer(option.isCorrect, index)"
+                  :class="{
+                    'option-btn': true,
+                    'correct': option.isCorrect && showResult,
+                    'incorrect': !option.isCorrect && showResult && selectedOption === index,
+                    'disabled': showResult,
+                  }"
+                  :disabled="showResult"
+              >
+                {{ option.text }}
+              </button>
+            </div>
+
+            <div v-if="showResult && !isCorrect" class="result">
+              <p class="incorrect-message">❌ Правильный ответ: {{ correctAnswer }}</p>
+              <button @click="nextCard" class="btn-next">Следующая карточка</button>
+            </div>
+
+            <div v-if="showResult && isCorrect" class="auto-result">
+              <p class="correct-message">✅ Правильно!</p>
+              <div class="auto-progress">
+                <div class="progress-bar-auto" :style="{ width: autoProgress + '%' }"></div>
+              </div>
+            </div>
           </div>
 
-          <div v-if="showResult && !isCorrect" class="result">
-            <p class="incorrect-message">❌ Правильный ответ: {{ correctAnswer }}</p>
-            <button @click="nextCard" class="btn-next">Следующая карточка</button>
-          </div>
+          <!-- Режим ввода ответа -->
+          <div v-else-if="quizType === 'input'">
+            <div class="input-container">
+              <input
+                  v-model="userInput"
+                  type="text"
+                  class="answer-input"
+                  placeholder="Введите ответ..."
+                  @keyup.enter="checkInputAnswer"
+                  :disabled="showResult"
+                  ref="answerInput"
+              >
+              <button
+                  @click="checkInputAnswer"
+                  class="check-btn"
+                  :disabled="showResult || !userInput.trim()"
+              >
+                Проверить
+              </button>
+            </div>
 
-          <div v-if="showResult && isCorrect" class="auto-result">
-            <p class="correct-message">✅ Правильно!</p>
-            <div class="auto-progress">
-              <div class="progress-bar-auto" :style="{ width: autoProgress + '%' }"></div>
+            <div v-if="showResult && !isCorrect" class="result">
+              <p class="incorrect-message">❌ Правильный ответ: {{ correctAnswer }}</p>
+              <p class="your-answer">Ваш ответ: {{ userInput }}</p>
+              <button @click="nextCard" class="btn-next">Следующая карточка</button>
+            </div>
+
+            <div v-if="showResult && isCorrect" class="auto-result">
+              <p class="correct-message">✅ Правильно!</p>
+              <div class="auto-progress">
+                <div class="progress-bar-auto" :style="{ width: autoProgress + '%' }"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -85,8 +153,9 @@
 
       <div class="progress">
         <div class="progress-info">
-          Режим: {{ studyMode === 'recent' ? 'Последние 100 слов' : 'Все слова' }}
+          Режим: {{ studyMode === 'recent' ? `Последние ${recentCount} слов` : 'Все слова' }}
           | Категория: {{ categoryFilter || 'Все' }}
+          | Тип: {{ quizType === 'choice' ? 'Выбор' : 'Ввод' }}
           (всего: {{ wordsCount }})
         </div>
         Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
@@ -107,7 +176,7 @@
 </template>
 
 <script>
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onMounted, ref, watch} from 'vue'
 import {getKoreanWords} from '../data/words.js'
 
 export default {
@@ -116,6 +185,7 @@ export default {
     const quizStarted = ref(false)
     const currentIndex = ref(0)
     const quizMode = ref('korean-to-russian')
+    const quizType = ref('choice') // 'choice' или 'input'
     const words = ref([])
     const showResult = ref(false)
     const isCorrect = ref(false)
@@ -127,6 +197,9 @@ export default {
     const isLoading = ref(true)
     const studyMode = ref('all')
     const categoryFilter = ref('')
+    const recentCount = ref(100)
+    const userInput = ref('')
+    const answerInput = ref(null)
 
     onMounted(async () => {
       try {
@@ -148,7 +221,6 @@ export default {
 
       let filtered = words.value
 
-      // Применяем фильтр по категории
       if (categoryFilter.value) {
         filtered = filtered.filter(word => word.category === categoryFilter.value)
       }
@@ -160,10 +232,9 @@ export default {
       if (!filteredWords.value || filteredWords.value.length === 0) return []
 
       if (studyMode.value === 'recent') {
-        // Берем последние 100 слов из отфильтрованных
-        return filteredWords.value.slice(-100)
+        const count = Math.min(recentCount.value, filteredWords.value.length)
+        return filteredWords.value.slice(-count)
       } else {
-        // Все отфильтрованные слова
         return filteredWords.value
       }
     })
@@ -175,7 +246,7 @@ export default {
 
     const onModeChange = () => {
       if (quizStarted.value) {
-        startQuiz() // Перезапускаем при смене режима
+        startQuiz()
       }
     }
 
@@ -201,6 +272,11 @@ export default {
 
       currentDirection.value = getCurrentDirection()
 
+      // В режиме ввода всегда показываем русский → корейский
+      if (quizType.value === 'input') {
+        return `${currentCard.value.russian} (${currentCard.value.category})`
+      }
+
       return currentDirection.value === 'korean-to-russian'
           ? currentCard.value.korean
           : currentCard.value.russian
@@ -209,17 +285,21 @@ export default {
     const correctAnswer = computed(() => {
       if (!currentCard.value) return ''
 
+      // В режиме ввода всегда корейский ответ
+      if (quizType.value === 'input') {
+        return currentCard.value.korean
+      }
+
       return currentDirection.value === 'korean-to-russian'
           ? currentCard.value.russian
           : currentCard.value.korean
     })
 
     const options = computed(() => {
-      if (!currentCard.value) return []
+      if (!currentCard.value || quizType.value === 'input') return []
 
       const correct = correctAnswer.value
 
-      // Получаем все возможные варианты переводов из отфильтрованных слов (исключая текущее слово)
       const allOtherWords = filteredWords.value
           .filter(word => word.id !== currentCard.value.id)
           .map(word => {
@@ -227,23 +307,19 @@ export default {
                 ? word.russian
                 : word.korean
           })
-          .filter((value, index, self) => self.indexOf(value) === index) // Убираем дубликаты
+          .filter((value, index, self) => self.indexOf(value) === index)
 
-      // Выбираем 3 случайных варианта из всех возможных
       const shuffledOtherWords = [...allOtherWords].sort(() => Math.random() - 0.5)
       const randomOptions = shuffledOtherWords.slice(0, 3)
 
-      // Создаем массив опций: правильный ответ + 3 случайных
       const allOptions = [
         {text: correct, isCorrect: true}
       ]
 
-      // Добавляем 3 случайных варианта
       randomOptions.forEach(word => {
         allOptions.push({text: word, isCorrect: false})
       })
 
-      // Перемешиваем все опции
       return allOptions.sort(() => Math.random() - 0.5)
     })
 
@@ -258,9 +334,19 @@ export default {
       showResult.value = false
       correctAnswers.value = 0
       selectedOption.value = null
+      userInput.value = ''
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
       currentDirection.value = getCurrentDirection()
+
+      // Фокус на инпут в режиме ввода
+      if (quizType.value === 'input') {
+        nextTick(() => {
+          if (answerInput.value) {
+            answerInput.value.focus()
+          }
+        })
+      }
     }
 
     const checkAnswer = (correct, index) => {
@@ -270,15 +356,28 @@ export default {
 
       if (correct) {
         correctAnswers.value++
-        // Запускаем автоматический переход через 1.5 секунды
         startAutoNext()
       }
-      // При неправильном ответе кнопка "Следующая" остается видимой
+    }
+
+    const checkInputAnswer = () => {
+      if (!userInput.value.trim()) return
+
+      const normalizedInput = userInput.value.trim().toLowerCase()
+      const normalizedCorrect = correctAnswer.value.trim().toLowerCase()
+
+      showResult.value = true
+      isCorrect.value = normalizedInput === normalizedCorrect
+
+      if (isCorrect.value) {
+        correctAnswers.value++
+        startAutoNext()
+      }
     }
 
     const startAutoNext = () => {
       autoProgress.value = 0
-      const duration = 1500 // 1.5 секунды
+      const duration = 1500
       const steps = 30
       const stepDuration = duration / steps
 
@@ -297,23 +396,32 @@ export default {
     const nextCard = () => {
       showResult.value = false
       selectedOption.value = null
+      userInput.value = ''
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
 
       if (currentIndex.value < shuffledWords.value.length - 1) {
         currentIndex.value++
+
+        // Фокус на инпут при переходе к следующей карточке
+        if (quizType.value === 'input') {
+          nextTick(() => {
+            if (answerInput.value) {
+              answerInput.value.focus()
+            }
+          })
+        }
       } else {
         quizStarted.value = false
       }
     }
 
-    watch([quizMode, categoryFilter], () => {
+    watch([quizMode, categoryFilter, quizType], () => {
       if (quizStarted.value) {
         startQuiz()
       }
     })
 
-    // Очищаем таймер при размонтировании компонента
     onMounted(() => {
       return () => {
         clearTimeout(autoNextTimer.value)
@@ -324,6 +432,7 @@ export default {
       quizStarted,
       currentIndex,
       quizMode,
+      quizType,
       currentCard,
       shuffledWords,
       showResult,
@@ -337,21 +446,25 @@ export default {
       autoProgress,
       startQuiz,
       checkAnswer,
+      checkInputAnswer,
       nextCard,
       isLoading,
       studyMode,
       onModeChange,
       categoryFilter,
       categories,
+      recentCount,
+      userInput,
+      answerInput,
       wordsCount: computed(() => currentWords.value.length),
-      words
+      words,
+      filteredWords
     }
   }
 }
 </script>
 
 <style scoped>
-/* Стили остаются такими же, только добавим немного отступов для нового селекта */
 .controls {
   margin-bottom: 30px;
   display: flex;
@@ -361,13 +474,14 @@ export default {
   flex-wrap: wrap;
 }
 
-.mode-switcher {
+.mode-switcher, .quiz-type-switcher {
   display: flex;
   gap: 15px;
   background: rgba(255, 255, 255, 0.1);
   padding: 10px 15px;
   border-radius: 10px;
   backdrop-filter: blur(10px);
+  align-items: center;
 }
 
 .mode-label {
@@ -389,6 +503,23 @@ export default {
   width: 16px;
   height: 16px;
   accent-color: #4CAF50;
+}
+
+.count-input {
+  width: 60px;
+  padding: 5px 8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 14px;
+  text-align: center;
+}
+
+.count-input::-webkit-outer-spin-button,
+.count-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .mode-info {
@@ -421,9 +552,64 @@ export default {
   padding: 10px;
 }
 
-.mode-select option:hover {
-  background: #667eea;
+.input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 30px;
+}
+
+.answer-input {
+  padding: 15px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  font-size: 18px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.answer-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+.answer-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.check-btn {
+  padding: 15px 20px;
+  background: #4CAF50;
   color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.check-btn:hover:not(:disabled) {
+  background: #45a049;
+  transform: translateY(-2px);
+}
+
+.check-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.your-answer {
+  color: #f44336;
+  font-size: 16px;
+  margin-top: 10px;
+  font-style: italic;
 }
 
 @media (max-width: 768px) {
@@ -432,13 +618,17 @@ export default {
     gap: 10px;
   }
 
-  .mode-switcher {
+  .mode-switcher, .quiz-type-switcher {
     width: 100%;
     justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .count-input {
+    width: 50px;
   }
 }
 
-/* Остальные стили остаются без изменений */
 .progress {
   margin-top: 20px;
   color: white;
@@ -562,25 +752,6 @@ export default {
   opacity: 0.7;
 }
 
-.option-btn.auto-next::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.5);
-  animation: progressBar 1.5s linear forwards;
-}
-
-@keyframes progressBar {
-  from {
-    width: 0;
-  }
-  to {
-    width: 100%;
-  }
-}
-
 .correct-message {
   color: #4CAF50;
   font-weight: bold;
@@ -656,7 +827,7 @@ export default {
   backdrop-filter: blur(10px);
 }
 
-.quiz-finished h2, .welcome h2 {
+.welcome h2 {
   margin-bottom: 20px;
 }
 
@@ -664,7 +835,6 @@ export default {
   margin-top: 20px;
 }
 
-/* Анимации */
 .option-btn {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
