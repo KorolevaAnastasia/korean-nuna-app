@@ -3,48 +3,103 @@
     <div class="admin-container">
       <h2>🔐 Панель администрирования</h2>
 
+      <!-- Авторизация -->
       <div v-if="!isAuthenticated" class="login-form">
-        <p>Введите пароль для доступа к таблице слов:</p>
+        <p>Введите пароль для доступа:</p>
         <div class="input-group">
           <input
               v-model="password"
               type="password"
-              placeholder="Введите пароль"
+              placeholder="Пароль"
               class="password-input"
               @keyup.enter="login"
           >
           <button @click="login" class="login-btn">Войти</button>
         </div>
-        <p v-if="error" class="error-message">{{ error }}</p>
+        <p v-if="loginError" class="error-message">{{ loginError }}</p>
       </div>
 
+      <!-- Основной интерфейс -->
       <div v-else class="admin-content">
-        <div class="success-message">
-          ✅ Доступ разрешен! Вот ссылка на таблицу:
+
+        <!-- Форма добавления / редактирования -->
+        <div class="form-section">
+          <h3>{{ editingWord ? '✏️ Редактировать слово' : '➕ Добавить слово' }}</h3>
+          <div class="word-form">
+            <input
+                v-model="form.korean"
+                placeholder="한국어 (корейское слово)"
+                class="form-input"
+            >
+            <input
+                v-model="form.russian"
+                placeholder="Перевод на русском"
+                class="form-input"
+            >
+            <input
+                v-model="form.category"
+                placeholder="Категория (Сущ., Глаг., ...)"
+                class="form-input"
+            >
+            <div class="form-buttons">
+              <button @click="saveWord" class="btn-save" :disabled="isSaving">
+                {{ isSaving ? 'Сохранение...' : (editingWord ? 'Сохранить' : 'Добавить') }}
+              </button>
+              <button v-if="editingWord" @click="cancelEdit" class="btn-cancel">Отмена</button>
+            </div>
+          </div>
+          <p v-if="formError" class="error-message">{{ formError }}</p>
+          <p v-if="formSuccess" class="success-inline">{{ formSuccess }}</p>
         </div>
 
-        <div class="link-container">
-          <a
-              :href="sheetUrl"
-              target="_blank"
-              class="sheet-link"
+        <!-- Список слов -->
+        <div class="words-section">
+          <div class="words-header">
+            <h3>📋 Слова в базе данных</h3>
+            <div class="words-meta">
+              <span v-if="isLoading">Загрузка...</span>
+              <span v-else>Всего: {{ words.length }} слов</span>
+              <button @click="loadWords" class="btn-refresh" :disabled="isLoading">🔄</button>
+            </div>
+          </div>
+
+          <input
+              v-model="searchQuery"
+              placeholder="Поиск по слову..."
+              class="search-input"
           >
-            📊 Открыть Google Таблицу
-          </a>
 
-          <button @click="copyLink" class="copy-btn">
-            {{ copySuccess ? '✓ Скопировано!' : '📋 Копировать ссылку' }}
-          </button>
-        </div>
+          <div v-if="isLoading" class="loading-msg">Загрузка слов из базы...</div>
 
-        <div class="admin-info">
-          <h3>Информация о таблице:</h3>
-          <ul>
-            <li>📍 Формат: ID | Корейский | Русский | Категория</li>
-            <li>💾 Изменения сохраняются автоматически</li>
-            <li>🔄 Приложение обновит слова через 30 минут</li>
-            <li>📱 Можно редактировать с телефона/компьютера</li>
-          </ul>
+          <div v-else-if="filteredWords.length === 0" class="empty-msg">
+            {{ words.length === 0 ? 'База данных пуста. Добавьте первое слово!' : 'Ничего не найдено' }}
+          </div>
+
+          <div v-else class="words-table-wrap">
+            <table class="words-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Корейский</th>
+                  <th>Русский</th>
+                  <th>Категория</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="word in filteredWords" :key="word.id">
+                  <td class="td-id">{{ word.id }}</td>
+                  <td class="td-korean">{{ word.korean }}</td>
+                  <td>{{ word.russian }}</td>
+                  <td><span class="category-badge">{{ word.category }}</span></td>
+                  <td class="td-actions">
+                    <button @click="startEdit(word)" class="btn-edit">✏️</button>
+                    <button @click="removeWord(word)" class="btn-delete">🗑️</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <button @click="logout" class="logout-btn">Выйти</button>
@@ -54,30 +109,36 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { fetchWords, addWord, updateWord, deleteWord } from '../utils/apiService.js'
 
 export default {
   name: 'Admin',
   setup() {
-    const password = ref('')
+    const password     = ref('')
+    const loginError   = ref('')
     const isAuthenticated = ref(false)
-    const error = ref('')
-    const copySuccess = ref(false)
 
-    // Пароль можно изменить здесь (простой пароль для удобства)
-    const correctPassword = 'KoreanPass321!' // Понятное дело, что его всем видно)
+    const words      = ref([])
+    const isLoading  = ref(false)
+    const searchQuery = ref('')
 
-    // Ссылка на вашу Google таблицу
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1IU-DQd4hW96SkbAE5YJFcUnRn4YiYYrZolOs3teM8uQ/edit?gid=0#gid=0'
+    const form = ref({ korean: '', russian: '', category: '' })
+    const editingWord = ref(null)
+    const isSaving   = ref(false)
+    const formError  = ref('')
+    const formSuccess = ref('')
+
+    const ADMIN_PASSWORD = 'Korean262842!'
 
     const login = () => {
-      if (password.value.trim() === correctPassword) {
+      if (password.value.trim() === ADMIN_PASSWORD) {
         isAuthenticated.value = true
-        error.value = ''
-        // Сохраняем в sessionStorage на время сессии
-        sessionStorage.setItem('adminAuthenticated', 'true')
+        loginError.value = ''
+        sessionStorage.setItem('adminAuth', 'true')
+        loadWords()
       } else {
-        error.value = 'Неверный пароль! Попробуйте снова.'
+        loginError.value = 'Неверный пароль!'
         password.value = ''
       }
     }
@@ -85,45 +146,98 @@ export default {
     const logout = () => {
       isAuthenticated.value = false
       password.value = ''
-      sessionStorage.removeItem('adminAuthenticated')
+      sessionStorage.removeItem('adminAuth')
     }
 
-    const copyLink = async () => {
+    const loadWords = async () => {
+      isLoading.value = true
       try {
-        await navigator.clipboard.writeText(sheetUrl)
-        copySuccess.value = true
-        setTimeout(() => {
-          copySuccess.value = false
-        }, 2000)
-      } catch (err) {
-        // Fallback для старых браузеров
-        const textArea = document.createElement('textarea')
-        textArea.value = sheetUrl
-        document.body.appendChild(textArea)
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
-        copySuccess.value = true
-        setTimeout(() => {
-          copySuccess.value = false
-        }, 2000)
+        words.value = await fetchWords()
+      } catch (e) {
+        console.error(e)
+      } finally {
+        isLoading.value = false
       }
     }
 
-    // Проверяем, не авторизован ли пользователь уже
-    if (sessionStorage.getItem('adminAuthenticated') === 'true') {
-      isAuthenticated.value = true
+    const filteredWords = computed(() => {
+      if (!searchQuery.value) return words.value
+      const q = searchQuery.value.toLowerCase()
+      return words.value.filter(w =>
+          w.korean.toLowerCase().includes(q) ||
+          w.russian.toLowerCase().includes(q)
+      )
+    })
+
+    const resetForm = () => {
+      form.value = { korean: '', russian: '', category: '' }
+      editingWord.value = null
+      formError.value = ''
     }
 
+    const showSuccess = (msg) => {
+      formSuccess.value = msg
+      setTimeout(() => { formSuccess.value = '' }, 2500)
+    }
+
+    const saveWord = async () => {
+      formError.value = ''
+      if (!form.value.korean.trim() || !form.value.russian.trim()) {
+        formError.value = 'Заполните корейское слово и перевод!'
+        return
+      }
+      isSaving.value = true
+      try {
+        if (editingWord.value) {
+          await updateWord(editingWord.value.id, form.value)
+          showSuccess('✅ Слово обновлено')
+        } else {
+          const newWord = await addWord(form.value)
+          words.value.push(newWord)
+          showSuccess('✅ Слово добавлено')
+        }
+        await loadWords()
+        resetForm()
+      } catch (e) {
+        formError.value = 'Ошибка сохранения: ' + e.message
+      } finally {
+        isSaving.value = false
+      }
+    }
+
+    const startEdit = (word) => {
+      editingWord.value = word
+      form.value = { korean: word.korean, russian: word.russian, category: word.category }
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    const cancelEdit = () => {
+      resetForm()
+    }
+
+    const removeWord = async (word) => {
+      if (!confirm(`Удалить «${word.korean}»?`)) return
+      try {
+        await deleteWord(word.id)
+        words.value = words.value.filter(w => w.id !== word.id)
+        showSuccess('🗑️ Слово удалено')
+      } catch (e) {
+        alert('Ошибка удаления: ' + e.message)
+      }
+    }
+
+    onMounted(() => {
+      if (sessionStorage.getItem('adminAuth') === 'true') {
+        isAuthenticated.value = true
+        loadWords()
+      }
+    })
+
     return {
-      password,
-      isAuthenticated,
-      error,
-      copySuccess,
-      sheetUrl,
-      login,
-      logout,
-      copyLink
+      password, loginError, isAuthenticated, login, logout,
+      words, isLoading, searchQuery, filteredWords, loadWords,
+      form, editingWord, isSaving, formError, formSuccess,
+      saveWord, startEdit, cancelEdit, removeWord,
     }
   }
 }
@@ -134,63 +248,46 @@ export default {
   min-height: 60vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start; /* Изменено с center на flex-start для мобилок */
   padding: 15px;
-  margin-top: 20px; /* Добавляем отступ сверху */
+  margin-top: 20px;
 }
 
 .admin-container {
   background: rgba(255, 255, 255, 0.95);
-  padding: 30px 25px; /* Уменьшаем padding */
+  padding: 30px 25px;
   border-radius: 15px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  max-width: 600px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  max-width: 900px;
   width: 100%;
-  text-align: center;
-  margin: 0 auto; /* Центрируем */
+  color: #333;
+  height: fit-content;
 }
 
 .admin-container h2 {
-  color: #333;
+  text-align: center;
   margin-bottom: 25px;
-  font-size: 1.7em; /* Уменьшаем размер шрифта */
-  line-height: 1.3;
+  font-size: 1.7em;
 }
 
-.login-form p {
-  color: #666;
-  margin-bottom: 20px;
-  font-size: 16px;
-  line-height: 1.4;
-}
-
+/* Авторизация */
+.login-form p { color: #666; margin-bottom: 16px; }
 .input-group {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
   flex-wrap: wrap;
   justify-content: center;
-  width: 100%;
+  margin-bottom: 12px;
 }
-
 .password-input {
   padding: 12px 15px;
   border: 2px solid #ddd;
   border-radius: 8px;
   font-size: 16px;
-  min-width: 200px;
-  transition: border-color 0.3s ease;
-  background: transparent;
-  color: #1a1a1a;
-  width: 100%; /* Добавляем для мобилок */
-  max-width: 300px; /* Ограничиваем максимальную ширину */
+  width: 260px;
+  color: #333;
+  background: #fff;
 }
-
-.password-input:focus {
-  border-color: #667eea;
-  outline: none;
-}
-
+.password-input:focus { border-color: #667eea; outline: none; }
 .login-btn {
   padding: 12px 24px;
   background: #667eea;
@@ -199,232 +296,174 @@ export default {
   border-radius: 8px;
   font-size: 16px;
   cursor: pointer;
-  transition: background 0.3s ease;
-  width: 100%; /* Полная ширина на мобилках */
-  max-width: 300px; /* Ограничиваем ширину */
 }
+.login-btn:hover { background: #5a6fd8; }
 
-.login-btn:hover {
-  background: #5a6fd8;
-}
-
-.error-message {
-  color: #e74c3c;
-  font-size: 14px;
-  margin-top: 10px;
-  line-height: 1.3;
-}
-
-.success-message {
-  color: #27ae60;
-  font-size: 16px; /* Уменьшаем размер */
-  margin-bottom: 25px;
-  font-weight: bold;
-  line-height: 1.4;
-  padding: 0 10px;
-}
-
-.link-container {
+/* Форма добавления */
+.form-section {
   background: #f8f9fa;
-  padding: 20px 15px; /* Уменьшаем боковые отступы */
+  padding: 20px;
   border-radius: 10px;
   margin-bottom: 25px;
   border-left: 4px solid #667eea;
-  border-right: 4px solid #667eea;
 }
-
-.sheet-link {
-  display: block;
-  color: #667eea;
-  font-size: 16px; /* Уменьшаем размер шрифта */
-  text-decoration: none;
-  margin-bottom: 15px;
-  padding: 12px 10px;
-  border: 2px solid transparent;
+.form-section h3 { margin-bottom: 15px; color: #444; }
+.word-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+.form-input {
+  padding: 10px 14px;
+  border: 2px solid #ddd;
   border-radius: 8px;
-  transition: all 0.3s ease;
-  word-break: break-all; /* Перенос длинных слов */
-  line-height: 1.3;
+  font-size: 15px;
+  flex: 1 1 180px;
+  min-width: 140px;
+  color: #333;
+  background: #fff;
 }
-
-.sheet-link:hover {
-  background: rgba(102, 126, 234, 0.1);
-  border-color: #667eea;
-  transform: translateY(-2px);
-}
-
-.copy-btn {
-  padding: 12px 20px;
-  background: #95a5a6;
+.form-input:focus { border-color: #667eea; outline: none; }
+.form-buttons { display: flex; gap: 8px; }
+.btn-save {
+  padding: 10px 22px;
+  background: #4CAF50;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.3s ease;
-  font-size: 14px;
-  width: 100%; /* Полная ширина на мобилках */
-  max-width: 250px;
+  font-size: 15px;
+  white-space: nowrap;
 }
-
-.copy-btn:hover {
-  background: #7f8c8d;
+.btn-save:hover:not(:disabled) { background: #43a047; }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-cancel {
+  padding: 10px 18px;
+  background: #aaa;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
 }
+.btn-cancel:hover { background: #888; }
 
-.admin-info {
-  text-align: left;
-  background: #f8f9fa;
-  padding: 20px 15px; /* Уменьшаем боковые отступы */
-  border-radius: 10px;
-  margin-bottom: 20px;
+/* Список слов */
+.words-section h3 { margin-bottom: 12px; color: #444; }
+.words-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-
-.admin-info h3 {
-  color: #333;
-  margin-bottom: 15px;
-  font-size: 1.2em;
-}
-
-.admin-info ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.admin-info li {
-  padding: 8px 0;
+.words-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: #666;
-  border-bottom: 1px solid #eee;
   font-size: 14px;
-  line-height: 1.4;
+}
+.btn-refresh {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.btn-refresh:hover { background: #f0f0f0; }
+
+.search-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-bottom: 15px;
+  color: #333;
+  background: #fff;
+  box-sizing: border-box;
+}
+.search-input:focus { border-color: #667eea; outline: none; }
+
+.loading-msg, .empty-msg {
+  text-align: center;
+  padding: 30px;
+  color: #888;
+  font-size: 15px;
 }
 
-.admin-info li:last-child {
-  border-bottom: none;
+.words-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #eee;
 }
+.words-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.words-table th {
+  background: #667eea;
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+}
+.words-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+.words-table tr:last-child td { border-bottom: none; }
+.words-table tr:hover td { background: #f9f9ff; }
+
+.td-id { color: #aaa; width: 50px; }
+.td-korean { font-size: 16px; font-weight: 500; color: #667eea; }
+.td-actions { white-space: nowrap; width: 80px; }
+
+.category-badge {
+  background: #f0f0f0;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #666;
+}
+.btn-edit, .btn-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  transition: background 0.2s;
+}
+.btn-edit:hover  { background: #e8f0fe; }
+.btn-delete:hover { background: #fde8e8; }
+
+/* Сообщения */
+.error-message  { color: #e74c3c; margin-top: 8px; font-size: 14px; }
+.success-inline { color: #27ae60; margin-top: 8px; font-size: 14px; font-weight: 500; }
 
 .logout-btn {
-  padding: 12px 24px;
+  display: block;
+  margin: 25px auto 0;
+  padding: 12px 28px;
   background: #e74c3c;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.3s ease;
-  width: 100%;
-  max-width: 200px;
+  font-size: 15px;
 }
+.logout-btn:hover { background: #c0392b; }
 
-.logout-btn:hover {
-  background: #c0392b;
-}
-
-/* Адаптивность для очень маленьких экранов */
-@media (max-width: 480px) {
-  .admin {
-    padding: 10px;
-    margin-top: 10px;
-    align-items: center; /* Центрируем на очень маленьких экранах */
-    min-height: 50vh;
-  }
-
-  .admin-container {
-    padding: 20px 15px;
-    margin: 0 5px;
-  }
-
-  .admin-container h2 {
-    font-size: 1.5em;
-    margin-bottom: 20px;
-  }
-
-  .login-form p {
-    font-size: 15px;
-    margin-bottom: 15px;
-  }
-
-  .input-group {
-    gap: 8px;
-    margin-bottom: 15px;
-  }
-
-  .password-input {
-    font-size: 16px; /* Сохраняем размер для удобства ввода */
-    padding: 14px 12px; /* Увеличиваем padding для удобства тапа */
-    min-width: auto;
-  }
-
-  .login-btn {
-    padding: 14px 20px;
-    font-size: 16px;
-  }
-
-  .success-message {
-    font-size: 15px;
-    margin-bottom: 20px;
-  }
-
-  .link-container {
-    padding: 15px 10px;
-    margin-bottom: 20px;
-  }
-
-  .sheet-link {
-    font-size: 15px;
-    padding: 10px 8px;
-  }
-
-  .admin-info {
-    padding: 15px 10px;
-  }
-
-  .admin-info h3 {
-    font-size: 1.1em;
-  }
-
-  .admin-info li {
-    font-size: 13px;
-    padding: 6px 0;
-  }
-}
-
-/* Для горизонтальной ориентации на мобильных */
-@media (max-width: 768px) and (orientation: landscape) {
-  .admin {
-    min-height: 80vh;
-    padding: 10px;
-  }
-
-  .admin-container {
-    padding: 20px;
-    max-width: 90%;
-  }
-
-  .input-group {
-    flex-direction: row; /* Горизонтально в landscape */
-  }
-
-  .password-input {
-    width: auto;
-    flex: 1;
-  }
-
-  .login-btn {
-    width: auto;
-  }
-}
-
-/* Улучшения для очень высоких узких экранов */
-@media (max-width: 320px) {
-  .admin-container {
-    padding: 15px 10px;
-  }
-
-  .admin-container h2 {
-    font-size: 1.3em;
-  }
-
-  .sheet-link {
-    font-size: 14px;
-  }
+@media (max-width: 600px) {
+  .admin-container { padding: 20px 15px; }
+  .word-form { flex-direction: column; }
+  .form-input { flex: unset; width: 100%; }
 }
 </style>

@@ -295,14 +295,9 @@ export default {
       if (!currentCard.value) return
 
       const koreanWord = currentCard.value.korean
-      console.log('Исходное слово:', koreanWord)
-
       currentSyllables.value = splitIntoSyllables(koreanWord)
-      console.log('Разделенные слоги:', currentSyllables.value)
-
       // Перемешиваем слоги
       shuffledSyllables.value = [...currentSyllables.value].sort(() => Math.random() - 0.5)
-      console.log('Перемешанные слоги:', shuffledSyllables.value)
 
       // Сбрасываем состояние использования
       syllableUsed.value = {}
@@ -635,6 +630,7 @@ export default {
   transition: all 0.3s ease;
   user-select: none;
   min-width: 50px;
+  min-height: 50px;
   text-align: center;
   display: flex;
   align-items: center;

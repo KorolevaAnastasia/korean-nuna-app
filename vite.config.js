@@ -23,5 +23,12 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      '/api': {
+        target: 'https://korean.nomelodic.ru',
+        changeOrigin: true,
+        secure: true,
+      }
+    }
   }
 })
