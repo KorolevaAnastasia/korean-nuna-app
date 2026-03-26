@@ -40,6 +40,13 @@
         </label>
       </div>
 
+      <div class="stats-info" v-if="quizStarted">
+        <span class="stat-badge">📊 Статистика:</span>
+        <span class="stat-item">🎯 Уровень: {{ currentWordLevel }}</span>
+        <span class="stat-item">⭐ Очки: {{ currentWordScore }}</span>
+        <span class="stat-item">🔥 Серия: {{ currentWordConsecutive }}</span>
+      </div>
+
       <button @click="startQuiz" class="btn-start">{{ quizStarted ? 'Перезапустить' : 'Начать обучение' }}</button>
     </div>
 
@@ -62,11 +69,18 @@
             <div v-for="(syllable, index) in selectedOrder"
                  :key="'selected-' + index"
                  class="syllable selected"
-                 @click="removeSyllable(index)">
+                 :class="{ 'disabled': showResult }"
+                 @click="!showResult && removeSyllable(index)">
               {{ syllable }}
             </div>
-            <div v-if="selectedOrder.length === 0" class="empty-placeholder">
+            <div v-if="selectedOrder.length === 0 && !showResult" class="empty-placeholder">
               Кликайте по слогам снизу, чтобы собрать слово
+            </div>
+            <div v-if="showResult && isCorrect" class="auto-result-message">
+              <p class="correct-message">✅ Правильно!</p>
+              <div class="auto-progress">
+                <div class="progress-bar-auto" :style="{ width: autoProgress + '%' }"></div>
+              </div>
             </div>
           </div>
 
@@ -74,32 +88,36 @@
             <div v-for="(syllable, index) in shuffledSyllables"
                  :key="'available-' + index"
                  class="syllable available"
-                 @click="addSyllable(syllable, index)"
-                 :class="{ 'used': syllableUsed[index] }">
+                 :class="{
+                   'used': syllableUsed[index],
+                   'disabled': showResult
+                 }"
+                 @click="!showResult && !syllableUsed[index] && addSyllable(syllable, index)">
               {{ syllable }}
             </div>
           </div>
 
           <div class="actions">
-            <button @click="checkSyllables" class="check-btn" :disabled="selectedOrder.length !== currentSyllables.length">
+            <button
+                @click="checkSyllables"
+                class="check-btn"
+                :disabled="showResult || selectedOrder.length !== currentSyllables.length"
+            >
               Проверить
             </button>
-            <button @click="resetSelection" class="reset-btn">
+<!--            <button
+                @click="resetSelection"
+                class="reset-btn"
+                :disabled="showResult"
+            >
               Сбросить
-            </button>
+            </button>-->
           </div>
 
           <div v-if="showResult && !isCorrect" class="result">
             <p class="incorrect-message">❌ Правильно: {{ correctAnswer }}</p>
             <p class="your-answer">Ваш вариант: {{ userAnswer }}</p>
             <button @click="nextCard" class="btn-next">Следующая карточка</button>
-          </div>
-
-          <div v-if="showResult && isCorrect" class="auto-result">
-            <p class="correct-message">✅ Правильно!</p>
-            <div class="auto-progress">
-              <div class="progress-bar-auto" :style="{ width: autoProgress + '%' }"></div>
-            </div>
           </div>
         </div>
       </div>
@@ -110,7 +128,6 @@
           | Категория: {{ categoryFilter || 'Все' }}
           (всего: {{ wordsCount }})
         </div>
-        Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
         </div>
@@ -129,8 +146,10 @@
 </template>
 
 <script>
-import {computed, nextTick, onMounted, ref, watch} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {getKoreanWords} from '../../data/words.js'
+import { updateWordStats } from '../../utils/apiService.js'
+import { useSmartWordSelector } from '../../composables/useSmartWordSelector.js'
 
 export default {
   name: 'SyllablesMode',
@@ -148,6 +167,9 @@ export default {
     const studyMode = ref('all')
     const categoryFilter = ref('')
     const recentCount = ref(100)
+    const sessionWords = ref([])
+
+    const { getSessionWords: getSmartSessionWords } = useSmartWordSelector(words)
 
     // Для режима сборки слогов
     const selectedOrder = ref([])
@@ -170,42 +192,30 @@ export default {
     const splitIntoSyllables = (koreanWord) => {
       const syllables = []
 
-      // Разбиваем по каждому символу
       for (let i = 0; i < koreanWord.length; i++) {
         const char = koreanWord[i]
 
         if (char === ' ') {
-          // Пробел - отдельный элемент
           syllables.push(' ')
         } else {
-          // Для каждого корейского слова разделяем по символам
-          // Пример: "고기" → ["고", "기"]
-          // Пример: "수박" → ["수", "박"]
-          // Пример: "입니다" → ["입", "니", "다"]
-
-          // Проверяем, является ли это составным слогом
           const nextChar = koreanWord[i + 1]
 
-          // Некоторые диграфы (составные согласные)
           const digraphs = {
             'ㄲ': true, 'ㄸ': true, 'ㅃ': true, 'ㅆ': true, 'ㅉ': true,
             'ㄳ': true, 'ㄵ': true, 'ㄶ': true, 'ㄺ': true, 'ㄻ': true,
             'ㄼ': true, 'ㄽ': true, 'ㄾ': true, 'ㄿ': true, 'ㅀ': true, 'ㅄ': true
           }
 
-          // Некоторые дифтонги (составные гласные)
           const diphthongs = {
             'ㅐ': true, 'ㅒ': true, 'ㅔ': true, 'ㅖ': true, 'ㅘ': true,
             'ㅙ': true, 'ㅚ': true, 'ㅝ': true, 'ㅞ': true, 'ㅟ': true, 'ㅢ': true
           }
 
-          // Если текущий и следующий символы образуют диграф
           const potentialDigraph = char + nextChar
-          if (nextChar && digraphs[potentialDigraph]) {
+          if (nextChar && (digraphs[potentialDigraph] || diphthongs[potentialDigraph])) {
             syllables.push(potentialDigraph)
-            i++ // Пропускаем следующий символ
+            i++
           } else {
-            // Обычный символ
             syllables.push(char)
           }
         }
@@ -242,11 +252,6 @@ export default {
       }
     })
 
-    const shuffledWords = computed(() => {
-      if (!currentWords.value || currentWords.value.length === 0) return []
-      return [...currentWords.value].sort(() => Math.random() - 0.5)
-    })
-
     const onModeChange = () => {
       if (quizStarted.value) {
         startQuiz()
@@ -254,13 +259,13 @@ export default {
     }
 
     const currentCard = computed(() => {
-      return quizStarted.value && shuffledWords.value.length > 0
-          ? shuffledWords.value[currentIndex.value]
+      return quizStarted.value && sessionWords.value.length > 0
+          ? sessionWords.value[currentIndex.value]
           : null
     })
 
     const progressPercentage = computed(() => {
-      return ((currentIndex.value + 1) / shuffledWords.value.length) * 100
+      return ((currentIndex.value + 1) / sessionWords.value.length) * 100
     })
 
     const currentQuestion = computed(() => {
@@ -273,18 +278,83 @@ export default {
       return currentCard.value.korean
     })
 
+    const currentWordLevel = computed(() => currentCard.value?.level || 1)
+    const currentWordScore = computed(() => currentCard.value?.score || 0)
+    const currentWordConsecutive = computed(() => currentCard.value?.consecutive_correct || 0)
+
+    const updateWordStatsAndSync = async (wordId, isAnswerCorrect, currentWord) => {
+      try {
+        let newScore = currentWord.score ?? 0;
+        let newLevel = currentWord.level ?? 1;
+        let newConsecutive = currentWord.consecutive_correct ?? 0;
+
+        if (isAnswerCorrect) {
+          newScore = Math.min(newScore + 1, 10);
+          newConsecutive += 1;
+          if (newConsecutive >= 3 && newLevel < 5) {
+            newLevel += 1;
+            newConsecutive = 0;
+          }
+        } else {
+          newScore = Math.max(newScore - 2, 0);
+          newConsecutive = 0;
+          if (newScore <= 3 && newLevel > 1) {
+            newLevel -= 1;
+          }
+        }
+
+        const updatedWord = {
+          ...currentWord,
+          score: newScore,
+          level: newLevel,
+          consecutive_correct: newConsecutive,
+          last_reviewed: new Date().toISOString().split('T')[0]
+        };
+
+        const wordIndex = words.value.findIndex(w => w.id === wordId);
+        if (wordIndex !== -1) {
+          words.value[wordIndex] = updatedWord;
+        }
+
+        const sessionIndex = sessionWords.value.findIndex(w => w.id === wordId);
+        if (sessionIndex !== -1) {
+          sessionWords.value[sessionIndex] = updatedWord;
+        }
+
+        updateWordStats(wordId, isAnswerCorrect, currentWord).catch(error => {
+          console.error('Ошибка сохранения статистики на сервере:', error);
+        });
+
+        return updatedWord;
+      } catch (error) {
+        console.error('Ошибка обновления статистики:', error);
+        return currentWord;
+      }
+    }
+
     const startQuiz = () => {
       if (currentWords.value.length === 0) {
         alert('Нет слов для обучения в выбранной категории!')
         return
       }
 
+      // Всегда используем умную выборку для режима "Все слова"
+      if (studyMode.value === 'all') {
+        sessionWords.value = getSmartSessionWords(null)
+      } else {
+        sessionWords.value = [...currentWords.value].sort(() => Math.random() - 0.5)
+      }
+
+      if (sessionWords.value.length === 0) {
+        alert('Не удалось сформировать сессию обучения!')
+        return
+      }
+
       quizStarted.value = true
       currentIndex.value = 0
       showResult.value = false
+      isCorrect.value = false
       correctAnswers.value = 0
-      selectedOrder.value = []
-      syllableUsed.value = {}
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
 
@@ -296,48 +366,43 @@ export default {
 
       const koreanWord = currentCard.value.korean
       currentSyllables.value = splitIntoSyllables(koreanWord)
-      // Перемешиваем слоги
       shuffledSyllables.value = [...currentSyllables.value].sort(() => Math.random() - 0.5)
 
-      // Сбрасываем состояние использования
+      // Сбрасываем только состояние сборки, НЕ сбрасываем showResult и autoProgress
       syllableUsed.value = {}
       selectedOrder.value = []
       userAnswer.value = ''
     }
 
     const addSyllable = (syllable, index) => {
-      // Проверяем, не использован ли уже этот слог
+      if (showResult.value) return
+
       if (syllableUsed.value[index]) {
-        // Если использован, ищем его в selectedOrder и удаляем
         const syllableIndex = selectedOrder.value.indexOf(syllable)
         if (syllableIndex > -1) {
-          // Находим все индексы этого слога в shuffledSyllables
           const allIndices = []
           shuffledSyllables.value.forEach((s, i) => {
             if (s === syllable && syllableUsed.value[i]) {
               allIndices.push(i)
             }
           })
-
-          // Освобождаем первый найденный использованный слог
           if (allIndices.length > 0) {
             syllableUsed.value[allIndices[0]] = false
           }
-
           selectedOrder.value.splice(syllableIndex, 1)
         }
       } else {
-        // Добавляем новый слог
         syllableUsed.value[index] = true
         selectedOrder.value.push(syllable)
       }
     }
 
     const removeSyllable = (index) => {
+      if (showResult.value) return
+
       const removedSyllable = selectedOrder.value[index]
       selectedOrder.value.splice(index, 1)
 
-      // Находим и освобождаем соответствующий слог в available
       for (const key in syllableUsed.value) {
         if (syllableUsed.value[key] && shuffledSyllables.value[key] === removedSyllable) {
           syllableUsed.value[key] = false
@@ -347,18 +412,27 @@ export default {
     }
 
     const resetSelection = () => {
+      if (showResult.value) return
       selectedOrder.value = []
       syllableUsed.value = {}
     }
 
-    const checkSyllables = () => {
-      userAnswer.value = selectedOrder.value.join('')
-      showResult.value = true
-      isCorrect.value = userAnswer.value === currentCard.value.korean
+    const checkSyllables = async () => {
+      if (showResult.value) return
 
-      if (isCorrect.value) {
+      userAnswer.value = selectedOrder.value.join('')
+      const isAnswerCorrect = userAnswer.value === currentCard.value.korean
+
+      showResult.value = true
+      isCorrect.value = isAnswerCorrect
+
+      if (isAnswerCorrect) {
         correctAnswers.value++
+        await updateWordStatsAndSync(currentCard.value.id, true, currentCard.value)
         startAutoNext()
+      } else {
+        await updateWordStatsAndSync(currentCard.value.id, false, currentCard.value)
+        // При неправильном ответе не запускаем авто-переход, ждем кнопку
       }
     }
 
@@ -381,17 +455,18 @@ export default {
     }
 
     const nextCard = () => {
+      // Сбрасываем состояние перед следующей карточкой
       showResult.value = false
-      selectedOrder.value = []
-      syllableUsed.value = {}
+      isCorrect.value = false
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
 
-      if (currentIndex.value < shuffledWords.value.length - 1) {
+      if (currentIndex.value < sessionWords.value.length - 1) {
         currentIndex.value++
         prepareSyllablesForCurrentCard()
       } else {
         quizStarted.value = false
+        alert(`🎉 Сессия завершена! Правильных ответов: ${correctAnswers.value} из ${sessionWords.value.length}`)
       }
     }
 
@@ -401,7 +476,6 @@ export default {
       }
     })
 
-    // При изменении карточки обновляем слоги
     watch(currentCard, () => {
       if (quizStarted.value && currentCard.value) {
         prepareSyllablesForCurrentCard()
@@ -418,7 +492,7 @@ export default {
       quizStarted,
       currentIndex,
       currentCard,
-      shuffledWords,
+      sessionWords,
       showResult,
       isCorrect,
       correctAnswers,
@@ -435,8 +509,6 @@ export default {
       categoryFilter,
       categories,
       recentCount,
-
-      // Для режима сборки слогов
       selectedOrder,
       syllableUsed,
       shuffledSyllables,
@@ -445,16 +517,59 @@ export default {
       addSyllable,
       removeSyllable,
       resetSelection,
-
       wordsCount: computed(() => currentWords.value.length),
       words,
-      filteredWords
+      filteredWords,
+      currentWordLevel,
+      currentWordScore,
+      currentWordConsecutive,
     }
   }
 }
 </script>
 
 <style scoped>
+.stats-info {
+  display: flex;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 15px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  font-weight: bold;
+  color: #ffeb3b;
+}
+
+.stat-item {
+  font-size: 14px;
+  color: white;
+}
+
+.syllable.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.syllable.available.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.correct-placeholder {
+  color: #4CAF50;
+  font-style: italic;
+  font-size: 14px;
+  text-align: center;
+  width: 100%;
+}
+
 .syllables-mode {
   max-width: 800px;
   margin: 0 auto;
@@ -630,7 +745,6 @@ export default {
   transition: all 0.3s ease;
   user-select: none;
   min-width: 50px;
-  min-height: 50px;
   text-align: center;
   display: flex;
   align-items: center;

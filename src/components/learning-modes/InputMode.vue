@@ -40,6 +40,13 @@
         </label>
       </div>
 
+      <div class="stats-info" v-if="quizStarted">
+        <span class="stat-badge">📊 Статистика:</span>
+        <span class="stat-item">🎯 Уровень: {{ currentWordLevel }}</span>
+        <span class="stat-item">⭐ Очки: {{ currentWordScore }}</span>
+        <span class="stat-item">🔥 Серия: {{ currentWordConsecutive }}</span>
+      </div>
+
       <button @click="startQuiz" class="btn-start">{{ quizStarted ? 'Перезапустить' : 'Начать обучение' }}</button>
     </div>
 
@@ -61,7 +68,7 @@
                 v-model="userInput"
                 type="text"
                 class="answer-input"
-                placeholder="Напишите перевод на корейском..."
+                :placeholder="inputPlaceholder"
                 @keyup.enter="checkInputAnswer"
                 :disabled="showResult"
                 ref="answerInput"
@@ -95,7 +102,6 @@
           | Категория: {{ categoryFilter || 'Все' }}
           (всего: {{ wordsCount }})
         </div>
-        Прогресс: {{ currentIndex + 1 }} / {{ shuffledWords.length }}
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
         </div>
@@ -108,6 +114,19 @@
       <p v-if="isLoading">Загрузка слов...</p>
       <p v-if="!isLoading">Всего загружено: {{ words.length }} слов.</p>
       <p v-if="!isLoading && categories.length > 0">Доступно категорий: {{ categories.length }}</p>
+
+      <div class="stats-preview" v-if="!isLoading && words.length > 0">
+        <h3>📈 Распределение слов по уровням:</h3>
+        <div class="level-stats">
+          <div v-for="level in 5" :key="level" class="level-stat">
+            <span class="level-label">Уровень {{ level }}:</span>
+            <span class="level-count">{{ getWordsCountByLevel(level) }} слов</span>
+            <div class="level-bar">
+              <div class="level-fill" :style="{ width: getPercentageByLevel(level) + '%' }"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -115,6 +134,8 @@
 <script>
 import {computed, nextTick, onMounted, ref, watch} from 'vue'
 import {getKoreanWords} from '../../data/words.js'
+import { updateWordStats } from '../../utils/apiService.js'
+import { useSmartWordSelector } from '../../composables/useSmartWordSelector.js'
 
 export default {
   name: 'InputMode',
@@ -134,6 +155,10 @@ export default {
     const recentCount = ref(100)
     const userInput = ref('')
     const answerInput = ref(null)
+    const sessionWords = ref([]) // Слова для текущей сессии
+
+    // Подключаем умный выбор слов
+    const { getSessionWords: getSmartSessionWords } = useSmartWordSelector(words)
 
     onMounted(async () => {
       try {
@@ -173,11 +198,6 @@ export default {
       }
     })
 
-    const shuffledWords = computed(() => {
-      if (!currentWords.value || currentWords.value.length === 0) return []
-      return [...currentWords.value].sort(() => Math.random() - 0.5)
-    })
-
     const onModeChange = () => {
       if (quizStarted.value) {
         startQuiz()
@@ -185,13 +205,25 @@ export default {
     }
 
     const currentCard = computed(() => {
-      return quizStarted.value && shuffledWords.value.length > 0
-          ? shuffledWords.value[currentIndex.value]
+      return quizStarted.value && sessionWords.value.length > 0
+          ? sessionWords.value[currentIndex.value]
           : null
     })
 
+    const currentWordLevel = computed(() => {
+      return currentCard.value?.level || 1
+    })
+
+    const currentWordScore = computed(() => {
+      return currentCard.value?.score || 0
+    })
+
+    const currentWordConsecutive = computed(() => {
+      return currentCard.value?.consecutive_correct || 0
+    })
+
     const progressPercentage = computed(() => {
-      return ((currentIndex.value + 1) / shuffledWords.value.length) * 100
+      return ((currentIndex.value + 1) / sessionWords.value.length) * 100
     })
 
     const currentQuestion = computed(() => {
@@ -204,9 +236,36 @@ export default {
       return currentCard.value.korean
     })
 
+    const inputPlaceholder = computed(() => {
+      if (!currentCard.value) return 'Напишите перевод на корейском...'
+
+      // Подсказка в зависимости от уровня слова
+      const level = currentCard.value.level || 1
+      if (level === 1) {
+        return 'Напишите перевод на корейском... (сложное слово)'
+      } else if (level === 5) {
+        return 'Напишите перевод на корейском... (выученное слово)'
+      }
+      return 'Напишите перевод на корейском...'
+    })
+
     const startQuiz = () => {
       if (currentWords.value.length === 0) {
         alert('Нет слов для обучения в выбранной категории!')
+        return
+      }
+
+      // Генерируем умную сессию слов
+      if (studyMode.value === 'all' && !categoryFilter.value) {
+        // Используем умный выбор для всех слов
+        sessionWords.value = getSmartSessionWords(null) // Берем 20 слов для сессии
+      } else {
+        // Для фильтров используем обычную случайную выборку
+        sessionWords.value = [...currentWords.value].sort(() => Math.random() - 0.5)
+      }
+
+      if (sessionWords.value.length === 0) {
+        alert('Не удалось сформировать сессию обучения!')
         return
       }
 
@@ -226,18 +285,66 @@ export default {
       })
     }
 
-    const checkInputAnswer = () => {
+    const checkInputAnswer = async () => {
       if (!userInput.value.trim()) return
 
       const normalizedInput = userInput.value.trim().toLowerCase()
       const normalizedCorrect = correctAnswer.value.trim().toLowerCase()
+      const isAnswerCorrect = normalizedInput === normalizedCorrect
 
       showResult.value = true
-      isCorrect.value = normalizedInput === normalizedCorrect
+      isCorrect.value = isAnswerCorrect
 
-      if (isCorrect.value) {
+      if (isAnswerCorrect) {
         correctAnswers.value++
+
+        // Обновляем статистику слова
+        try {
+          const updatedWord = await updateWordStats(
+              currentCard.value.id,
+              true,
+              currentCard.value
+          )
+
+          // Обновляем слово в локальном массиве
+          const wordIndex = words.value.findIndex(w => w.id === updatedWord.id)
+          if (wordIndex !== -1) {
+            words.value[wordIndex] = updatedWord
+          }
+
+          // Обновляем в sessionWords
+          const sessionIndex = sessionWords.value.findIndex(w => w.id === updatedWord.id)
+          if (sessionIndex !== -1) {
+            sessionWords.value[sessionIndex] = updatedWord
+          }
+        } catch (error) {
+          console.error('Ошибка обновления статистики:', error)
+        }
+
         startAutoNext()
+      } else {
+        // Обновляем статистику для неправильного ответа
+        try {
+          const updatedWord = await updateWordStats(
+              currentCard.value.id,
+              false,
+              currentCard.value
+          )
+
+          // Обновляем слово в локальном массиве
+          const wordIndex = words.value.findIndex(w => w.id === updatedWord.id)
+          if (wordIndex !== -1) {
+            words.value[wordIndex] = updatedWord
+          }
+
+          // Обновляем в sessionWords
+          const sessionIndex = sessionWords.value.findIndex(w => w.id === updatedWord.id)
+          if (sessionIndex !== -1) {
+            sessionWords.value[sessionIndex] = updatedWord
+          }
+        } catch (error) {
+          console.error('Ошибка обновления статистики:', error)
+        }
       }
     }
 
@@ -265,7 +372,7 @@ export default {
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
 
-      if (currentIndex.value < shuffledWords.value.length - 1) {
+      if (currentIndex.value < sessionWords.value.length - 1) {
         currentIndex.value++
 
         // Фокус на инпут при переходе
@@ -276,7 +383,19 @@ export default {
         })
       } else {
         quizStarted.value = false
+        alert(`🎉 Сессия завершена! Правильных ответов: ${correctAnswers.value} из ${sessionWords.value.length}`)
       }
+    }
+
+    // Вспомогательные функции для статистики
+    const getWordsCountByLevel = (level) => {
+      if (!words.value) return 0
+      return words.value.filter(w => (w.level || 1) === level).length
+    }
+
+    const getPercentageByLevel = (level) => {
+      if (!words.value || words.value.length === 0) return 0
+      return (getWordsCountByLevel(level) / words.value.length) * 100
     }
 
     watch([categoryFilter], () => {
@@ -295,7 +414,7 @@ export default {
       quizStarted,
       currentIndex,
       currentCard,
-      shuffledWords,
+      sessionWords,
       showResult,
       isCorrect,
       correctAnswers,
@@ -314,9 +433,15 @@ export default {
       recentCount,
       userInput,
       answerInput,
+      inputPlaceholder,
       wordsCount: computed(() => currentWords.value.length),
       words,
-      filteredWords
+      filteredWords,
+      currentWordLevel,
+      currentWordScore,
+      currentWordConsecutive,
+      getWordsCountByLevel,
+      getPercentageByLevel
     }
   }
 }
@@ -407,6 +532,27 @@ export default {
   font-size: 14px;
   min-width: 200px;
   backdrop-filter: blur(10px);
+}
+
+.stats-info {
+  display: flex;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 15px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  font-weight: bold;
+  color: #ffeb3b;
+}
+
+.stat-item {
+  font-size: 14px;
+  color: white;
 }
 
 .btn-start {
@@ -616,6 +762,59 @@ export default {
   font-size: 16px;
 }
 
+.stats-preview {
+  margin-top: 20px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+}
+
+.stats-preview h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #ffeb3b;
+}
+
+.level-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.level-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.level-label {
+  min-width: 70px;
+  color: white;
+}
+
+.level-count {
+  min-width: 80px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+}
+
+.level-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.level-fill {
+  height: 100%;
+  background: #4CAF50;
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+
 @media (max-width: 768px) {
   .controls {
     flex-direction: column;
@@ -660,6 +859,10 @@ export default {
 
   .welcome h2 {
     font-size: 1.5em;
+  }
+
+  .stats-info {
+    justify-content: center;
   }
 }
 </style>

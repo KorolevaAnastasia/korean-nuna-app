@@ -3,30 +3,17 @@
     <header class="header">
       <h1>❤️ Корейский с любовью</h1>
       <nav class="nav">
-        <button
-            @click="currentView = 'learning'"
-            :class="{ active: currentView === 'learning' }"
-        >
-          Обучение
-        </button>
-        <button
-            @click="currentView = 'dictionary'"
-            :class="{ active: currentView === 'dictionary' }"
-        >
-          Словарь
-        </button>
-        <button
-            @click="currentView = 'admin'"
-            :class="{ active: currentView === 'admin' }"
-        >
-          Админ
-        </button>
+        <button @click="currentView = 'learning'" :class="{ active: currentView === 'learning' }">Обучение</button>
+        <button @click="currentView = 'dictionary'" :class="{ active: currentView === 'dictionary' }">Словарь</button>
+        <button @click="currentView = 'stats'" :class="{ active: currentView === 'stats' }">Статистика</button>
+        <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }">Админ</button>
       </nav>
     </header>
 
     <main class="main">
       <Learning v-if="currentView === 'learning'" />
       <Dictionary v-if="currentView === 'dictionary'" />
+      <StatsPage v-if="currentView === 'stats'" />
       <Admin v-if="currentView === 'admin'" />
     </main>
   </div>
@@ -36,32 +23,21 @@
 import { ref } from 'vue'
 import Learning from './components/Learning.vue'
 import Dictionary from './components/Dictionary.vue'
-import Admin from "./components/Admin.vue";
+import Admin from './components/Admin.vue'
+import StatsPage from './components/StatsPage.vue'
 
 export default {
   name: 'App',
-  components: {
-    Admin,
-    Learning,
-    Dictionary,
-  },
+  components: { Admin, Learning, Dictionary, StatsPage },
   setup() {
     const currentView = ref('learning')
-
-    return {
-      currentView
-    }
+    return { currentView }
   }
 }
 </script>
 
 <style>
-/* Стили оставляем как были */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   font-family: 'Arial', sans-serif;
@@ -78,11 +54,7 @@ body {
   flex-direction: column;
 }
 
-.header {
-  text-align: center;
-  margin-bottom: 30px;
-  flex-shrink: 0;
-}
+.header { text-align: center; margin-bottom: 30px; flex-shrink: 0; }
 
 .header h1 {
   color: white;
@@ -91,16 +63,7 @@ body {
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
-.mode-select > * {
-  color: #1a1a1a;
-}
-
-.nav {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.nav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
 .nav button {
   padding: 12px 24px;
@@ -114,45 +77,17 @@ body {
   backdrop-filter: blur(10px);
 }
 
-.nav button:hover {
-  background: rgba(255,255,255,0.3);
-  transform: translateY(-2px);
-}
+.nav button:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+.nav button.active { background: rgba(255,255,255,0.9); color: #667eea; font-weight: bold; }
 
-.nav button.active {
-  background: rgba(255,255,255,0.9);
-  color: #667eea;
-  font-weight: bold;
-}
+.main { max-width: 800px; margin: 0 auto; flex-grow: 1; width: 100%; padding-bottom: 20px; }
 
-.main {
-  max-width: 800px;
-  margin: 0 auto;
-  flex-grow: 1;
-  width: 100%;
-  padding-bottom: 20px;
-}
-
-input:focus, select:focus, button:focus {
-  outline: 2px solid white;
-}
+input:focus, select:focus, button:focus { outline: 2px solid white; }
 
 @media (max-width: 768px) {
-  #app {
-    padding: 15px;
-  }
-
-  .header h1 {
-    font-size: 2em;
-  }
-
-  .nav {
-    gap: 8px;
-  }
-
-  .nav button {
-    padding: 10px 20px;
-    font-size: 14px;
-  }
+  #app { padding: 15px; }
+  .header h1 { font-size: 2em; }
+  .nav { gap: 8px; }
+  .nav button { padding: 10px 16px; font-size: 14px; }
 }
 </style>

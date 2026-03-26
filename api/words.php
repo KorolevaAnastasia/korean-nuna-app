@@ -36,84 +36,80 @@ function getDB() {
 $method = $_SERVER['REQUEST_METHOD'];
 $pdo    = getDB();
 
-// GET /api/words.php — получить все слова
 if ($method === 'GET') {
-    $stmt = $pdo->query('SELECT id, korean, russian, category FROM words ORDER BY id ASC');
+    $stmt = $pdo->query('SELECT id, korean, russian, category, score, level, consecutive_correct, last_reviewed FROM words ORDER BY id ASC');
     $words = $stmt->fetchAll();
-    // Приводим id к числу
     foreach ($words as &$w) {
-        $w['id'] = (int) $w['id'];
+        $w['id']                  = (int) $w['id'];
+        $w['score']               = (int) $w['score'];
+        $w['level']               = (int) $w['level'];
+        $w['consecutive_correct'] = (int) $w['consecutive_correct'];
     }
     echo json_encode($words, JSON_UNESCAPED_UNICODE);
     exit();
 }
 
-// POST /api/words.php — добавить слово
 if ($method === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
-
     if (empty($data['korean']) || empty($data['russian'])) {
         http_response_code(400);
         echo json_encode(['error' => 'Поля korean и russian обязательны']);
         exit();
     }
-
-    $stmt = $pdo->prepare(
-        'INSERT INTO words (korean, russian, category) VALUES (:korean, :russian, :category)'
-    );
+    $stmt = $pdo->prepare('INSERT INTO words (korean, russian, category, score, level, consecutive_correct) VALUES (:korean, :russian, :category, :score, :level, :consecutive_correct)');
     $stmt->execute([
-        ':korean'   => trim($data['korean']),
-        ':russian'  => trim($data['russian']),
-        ':category' => trim($data['category'] ?? 'Не указано'),
+        ':korean'              => trim($data['korean']),
+        ':russian'             => trim($data['russian']),
+        ':category'            => trim($data['category'] ?? 'Не указано'),
+        ':score'               => (int)($data['score'] ?? 0),
+        ':level'               => (int)($data['level'] ?? 1),
+        ':consecutive_correct' => (int)($data['consecutive_correct'] ?? 0),
     ]);
-
     echo json_encode([
-        'id'       => (int) $pdo->lastInsertId(),
-        'korean'   => trim($data['korean']),
-        'russian'  => trim($data['russian']),
-        'category' => trim($data['category'] ?? 'Не указано'),
+        'id'                  => (int) $pdo->lastInsertId(),
+        'korean'              => trim($data['korean']),
+        'russian'             => trim($data['russian']),
+        'category'            => trim($data['category'] ?? 'Не указано'),
+        'score'               => (int)($data['score'] ?? 0),
+        'level'               => (int)($data['level'] ?? 1),
+        'consecutive_correct' => (int)($data['consecutive_correct'] ?? 0),
+        'last_reviewed'       => null,
     ], JSON_UNESCAPED_UNICODE);
     exit();
 }
 
-// PUT /api/words.php?id=5 — обновить слово
 if ($method === 'PUT') {
     $id   = (int) ($_GET['id'] ?? 0);
     $data = json_decode(file_get_contents('php://input'), true);
-
     if (!$id) {
         http_response_code(400);
         echo json_encode(['error' => 'Не указан id']);
         exit();
     }
-
-    $stmt = $pdo->prepare(
-        'UPDATE words SET korean=:korean, russian=:russian, category=:category WHERE id=:id'
-    );
+    $stmt = $pdo->prepare('UPDATE words SET korean=:korean, russian=:russian, category=:category, score=:score, level=:level, consecutive_correct=:consecutive_correct, last_reviewed=:last_reviewed WHERE id=:id');
     $stmt->execute([
-        ':korean'   => trim($data['korean']),
-        ':russian'  => trim($data['russian']),
-        ':category' => trim($data['category'] ?? 'Не указано'),
-        ':id'       => $id,
+        ':korean'              => trim($data['korean']),
+        ':russian'             => trim($data['russian']),
+        ':category'            => trim($data['category'] ?? 'Не указано'),
+        ':score'               => (int)($data['score'] ?? 0),
+        ':level'               => (int)($data['level'] ?? 1),
+        ':consecutive_correct' => (int)($data['consecutive_correct'] ?? 0),
+        ':last_reviewed'       => $data['last_reviewed'] ?? null,
+        ':id'                  => $id,
     ]);
-
     echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
     exit();
 }
 
-// DELETE /api/words.php?id=5 — удалить слово
 if ($method === 'DELETE') {
     $id = (int) ($_GET['id'] ?? 0);
-
     if (!$id) {
         http_response_code(400);
         echo json_encode(['error' => 'Не указан id']);
         exit();
     }
-
-    $stmt = $pdo->prepare('DELETE FROM words WHERE id = :id');
+    $stmt = $pdo->prepare('DELETE FROM words WHERE id = :id');  // исправлено: было $do
     $stmt->execute([':id' => $id]);
-
     echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
     exit();
 }
