@@ -18,30 +18,13 @@
 
       <div class="mode-switcher">
         <label class="mode-label">
-          <input
-              type="radio"
-              v-model="studyMode"
-              value="all"
-              @change="onModeChange"
-          >
+          <input type="radio" v-model="studyMode" value="all" @change="onModeChange">
           Все слова
         </label>
         <label class="mode-label">
-          <input
-              type="radio"
-              v-model="studyMode"
-              value="recent"
-              @change="onModeChange"
-          >
+          <input type="radio" v-model="studyMode" value="recent" @change="onModeChange">
           Последние
-          <input
-              v-model.number="recentCount"
-              type="number"
-              min="1"
-              :max="filteredWords.length"
-              class="count-input"
-              @change="onModeChange"
-          >
+          <input v-model.number="recentCount" type="number" min="1" :max="filteredWords.length" class="count-input" @change="onModeChange">
           слов
         </label>
       </div>
@@ -137,7 +120,7 @@
 </template>
 
 <script>
-import {computed, nextTick, onMounted, ref, watch} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {getKoreanWords} from '../../data/words.js'
 import { updateWordStats } from '../../utils/apiService.js'
 import { useSmartWordSelector } from '../../composables/useSmartWordSelector.js'
@@ -154,19 +137,18 @@ export default {
     const isCorrect = ref(false)
     const selectedOption = ref(null)
     const correctAnswers = ref(0)
-    const currentDirection = ref('korean-to-russian')
     const autoProgress = ref(0)
     const autoNextTimer = ref(null)
     const isLoading = ref(true)
     const studyMode = ref('all')
     const categoryFilter = ref('')
     const recentCount = ref(100)
-    const sessionWords = ref([]) // Слова для текущей сессии
-
-    // Сохраняем текущие опции для карточки, чтобы они не менялись во время ответа
+    const sessionWords = ref([])
     const frozenOptions = ref([])
 
-    // Подключаем умный выбор слов
+    // Направление фиксируется на каждую карточку отдельно
+    const frozenDirection = ref('korean-to-russian')
+
     const { getSessionWords: getSmartSessionWords } = useSmartWordSelector(words)
 
     onMounted(async () => {
@@ -186,31 +168,24 @@ export default {
 
     const filteredWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
-
       let filtered = words.value
-
       if (categoryFilter.value) {
         filtered = filtered.filter(word => word.category === categoryFilter.value)
       }
-
       return filtered
     })
 
     const currentWords = computed(() => {
       if (!filteredWords.value || filteredWords.value.length === 0) return []
-
       if (studyMode.value === 'recent') {
         const count = Math.min(recentCount.value, filteredWords.value.length)
         return filteredWords.value.slice(-count)
-      } else {
-        return filteredWords.value
       }
+      return filteredWords.value
     })
 
     const onModeChange = () => {
-      if (quizStarted.value) {
-        startQuiz()
-      }
+      if (quizStarted.value) startQuiz()
     }
 
     const currentCard = computed(() => {
@@ -219,147 +194,65 @@ export default {
           : null
     })
 
-    const currentWordLevel = computed(() => {
-      const level = currentCard.value?.level
-      return level || 1
-    })
-
-    const currentWordScore = computed(() => {
-      const score = currentCard.value?.score
-      return score || 0
-    })
-
-    const currentWordConsecutive = computed(() => {
-      const consecutive = currentCard.value?.consecutive_correct
-      return consecutive || 0
-    })
+    const currentWordLevel = computed(() => currentCard.value?.level || 1)
+    const currentWordScore = computed(() => currentCard.value?.score || 0)
+    const currentWordConsecutive = computed(() => currentCard.value?.consecutive_correct || 0)
 
     const progressPercentage = computed(() => {
       return ((currentIndex.value + 1) / sessionWords.value.length) * 100
     })
 
-    const getCurrentDirection = () => {
-      if (quizMode.value === 'mixed') {
-        return Math.random() > 0.5 ? 'korean-to-russian' : 'russian-to-korean'
-      }
-      return quizMode.value
-    }
-
+    // Вопрос и ответ берутся из frozenDirection — не пересчитываются при каждом рендере
     const currentQuestion = computed(() => {
       if (!currentCard.value) return ''
-
-      currentDirection.value = getCurrentDirection()
-
-      return currentDirection.value === 'korean-to-russian'
+      return frozenDirection.value === 'korean-to-russian'
           ? currentCard.value.korean
           : currentCard.value.russian
     })
 
     const correctAnswer = computed(() => {
       if (!currentCard.value) return ''
-
-      return currentDirection.value === 'korean-to-russian'
+      return frozenDirection.value === 'korean-to-russian'
           ? currentCard.value.russian
           : currentCard.value.korean
     })
 
-    // Генерируем опции для текущей карточки
+    const pickDirection = () => {
+      if (quizMode.value === 'mixed') {
+        return Math.random() > 0.5 ? 'korean-to-russian' : 'russian-to-korean'
+      }
+      return quizMode.value
+    }
+
+    // Генерируем опции строго по frozenDirection — корейские варианты для корейских вопросов и наоборот
     const generateOptions = () => {
       if (!currentCard.value) return []
 
-      const correct = correctAnswer.value
+      const isKoreanQuestion = frozenDirection.value === 'korean-to-russian'
+      const correct = isKoreanQuestion ? currentCard.value.russian : currentCard.value.korean
 
-      const allOtherWords = filteredWords.value
+      // Варианты того же типа что и правильный ответ
+      const distractors = filteredWords.value
           .filter(word => word.id !== currentCard.value.id)
-          .map(word => {
-            return currentDirection.value === 'korean-to-russian'
-                ? word.russian
-                : word.korean
-          })
-          .filter((value, index, self) => self.indexOf(value) === index)
+          .map(word => isKoreanQuestion ? word.russian : word.korean)
+          .filter((v, i, self) => self.indexOf(v) === i) // уникальные
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
 
-      const shuffledOtherWords = [...allOtherWords].sort(() => Math.random() - 0.5)
-      const randomOptions = shuffledOtherWords.slice(0, 3)
-
-      const allOptions = [
-        {text: correct, isCorrect: true}
-      ]
-
-      randomOptions.forEach(word => {
-        allOptions.push({text: word, isCorrect: false})
-      })
-
-      return allOptions.sort(() => Math.random() - 0.5)
+      return [
+        { text: correct, isCorrect: true },
+        ...distractors.map(text => ({ text, isCorrect: false }))
+      ].sort(() => Math.random() - 0.5)
     }
 
-    // Используем frozenOptions для отображения, чтобы они не менялись во время ответа
     const currentOptions = computed(() => {
-      if (frozenOptions.value.length > 0) {
-        return frozenOptions.value
-      }
-      return generateOptions()
+      return frozenOptions.value.length > 0 ? frozenOptions.value : []
     })
 
-    // Обновление статистики с синхронизацией (локальное обновление + отправка на сервер)
-    const updateWordStatsAndSync = async (wordId, isAnswerCorrect, currentWord) => {
-      try {
-        // Вычисляем новую статистику локально
-        let newScore = currentWord.score ?? 0;
-        let newLevel = currentWord.level ?? 1;
-        let newConsecutive = currentWord.consecutive_correct ?? 0;
-
-        if (isAnswerCorrect) {
-          newScore = Math.min(newScore + 1, 10);
-          newConsecutive += 1;
-
-          if (newConsecutive >= 3 && newLevel < 5) {
-            newLevel += 1;
-            newConsecutive = 0;
-          }
-        } else {
-          newScore = Math.max(newScore - 2, 0);
-          newConsecutive = 0;
-
-          if (newScore <= 3 && newLevel > 1) {
-            newLevel -= 1;
-          }
-        }
-
-        // Создаем обновленную версию слова
-        const updatedWord = {
-          ...currentWord,
-          score: newScore,
-          level: newLevel,
-          consecutive_correct: newConsecutive,
-          last_reviewed: new Date().toISOString().split('T')[0]
-        };
-
-        // Обновляем в локальном массиве words
-        const wordIndex = words.value.findIndex(w => w.id === wordId);
-        if (wordIndex !== -1) {
-          words.value[wordIndex] = updatedWord;
-        } else {
-          console.warn('Слово не найдено в words.value');
-        }
-
-        // Обновляем в sessionWords
-        const sessionIndex = sessionWords.value.findIndex(w => w.id === wordId);
-        if (sessionIndex !== -1) {
-          sessionWords.value[sessionIndex] = updatedWord;
-        } else {
-          console.warn('Слово не найдено в sessionWords.value');
-        }
-
-        // Отправляем на сервер (не ждем, чтобы не блокировать интерфейс)
-        updateWordStats(wordId, isAnswerCorrect, currentWord).then(() => {}).catch(error => {
-          console.error('Ошибка сохранения статистики на сервере:', error);
-        });
-
-        return updatedWord;
-      } catch (error) {
-        console.error('Ошибка обновления статистики:', error);
-        return currentWord;
-      }
+    const advanceToCard = () => {
+      // Фиксируем направление и генерируем опции для текущей карточки
+      frozenDirection.value = pickDirection()
+      frozenOptions.value = generateOptions()
     }
 
     const startQuiz = () => {
@@ -368,7 +261,6 @@ export default {
         return
       }
 
-      // Генерируем умную сессию слов
       if (studyMode.value === 'all' && !categoryFilter.value) {
         sessionWords.value = getSmartSessionWords(null)
       } else {
@@ -387,10 +279,8 @@ export default {
       selectedOption.value = null
       autoProgress.value = 0
       clearTimeout(autoNextTimer.value)
-      currentDirection.value = getCurrentDirection()
 
-      // Замораживаем опции для первой карточки
-      frozenOptions.value = generateOptions()
+      advanceToCard()
     }
 
     const checkAnswer = async (correct, index) => {
@@ -400,33 +290,61 @@ export default {
 
       if (correct) {
         correctAnswers.value++
-
-        // Обновляем статистику слова
         await updateWordStatsAndSync(currentCard.value.id, true, currentCard.value)
-
         startAutoNext()
       } else {
-        // Обновляем статистику для неправильного ответа
         await updateWordStatsAndSync(currentCard.value.id, false, currentCard.value)
+      }
+    }
+
+    const updateWordStatsAndSync = async (wordId, isAnswerCorrect, currentWord) => {
+      try {
+        let newScore = currentWord.score ?? 0
+        let newLevel = currentWord.level ?? 1
+        let newConsecutive = currentWord.consecutive_correct ?? 0
+
+        if (isAnswerCorrect) {
+          newScore = Math.min(newScore + 1, 10)
+          newConsecutive += 1
+          if (newConsecutive >= 3 && newLevel < 5) { newLevel += 1; newConsecutive = 0 }
+        } else {
+          newScore = Math.max(newScore - 2, 0)
+          newConsecutive = 0
+          if (newScore <= 3 && newLevel > 1) newLevel -= 1
+        }
+
+        const updatedWord = {
+          ...currentWord,
+          score: newScore, level: newLevel,
+          consecutive_correct: newConsecutive,
+          last_reviewed: new Date().toISOString().split('T')[0]
+        }
+
+        const wi = words.value.findIndex(w => w.id === wordId)
+        if (wi !== -1) words.value[wi] = updatedWord
+        const si = sessionWords.value.findIndex(w => w.id === wordId)
+        if (si !== -1) sessionWords.value[si] = updatedWord
+
+        updateWordStats(wordId, isAnswerCorrect, currentWord).catch(e => {
+          console.error('Ошибка сохранения статистики:', e)
+        })
+
+        return updatedWord
+      } catch (error) {
+        console.error('Ошибка обновления статистики:', error)
+        return currentWord
       }
     }
 
     const startAutoNext = () => {
       autoProgress.value = 0
-      const duration = 1500
       const steps = 30
-      const stepDuration = duration / steps
-
       let step = 0
       const timer = setInterval(() => {
         step++
         autoProgress.value = (step / steps) * 100
-
-        if (step >= steps) {
-          clearInterval(timer)
-          nextCard()
-        }
-      }, stepDuration)
+        if (step >= steps) { clearInterval(timer); nextCard() }
+      }, 1500 / steps)
     }
 
     const nextCard = () => {
@@ -437,15 +355,13 @@ export default {
 
       if (currentIndex.value < sessionWords.value.length - 1) {
         currentIndex.value++
-        // Генерируем новые опции для следующей карточки
-        frozenOptions.value = generateOptions()
+        advanceToCard()
       } else {
         quizStarted.value = false
         alert(`🎉 Сессия завершена! Правильных ответов: ${correctAnswers.value} из ${sessionWords.value.length}`)
       }
     }
 
-    // Вспомогательные функции для статистики
     const getWordsCountByLevel = (level) => {
       if (!words.value) return 0
       return words.value.filter(w => (w.level || 1) === level).length
@@ -457,54 +373,23 @@ export default {
     }
 
     watch([quizMode, categoryFilter], () => {
-      if (quizStarted.value) {
-        startQuiz()
-      }
-    })
-
-    onMounted(() => {
-      return () => {
-        clearTimeout(autoNextTimer.value)
-      }
+      if (quizStarted.value) startQuiz()
     })
 
     return {
-      quizStarted,
-      currentIndex,
-      quizMode,
-      currentCard,
-      sessionWords,
-      showResult,
-      isCorrect,
-      selectedOption,
-      correctAnswers,
-      progressPercentage,
-      currentQuestion,
-      correctAnswer,
-      currentOptions,
-      autoProgress,
-      startQuiz,
-      checkAnswer,
-      nextCard,
-      isLoading,
-      studyMode,
-      onModeChange,
-      categoryFilter,
-      categories,
-      recentCount,
+      quizStarted, currentIndex, quizMode, currentCard, sessionWords,
+      showResult, isCorrect, selectedOption, correctAnswers,
+      progressPercentage, currentQuestion, correctAnswer, currentOptions,
+      autoProgress, startQuiz, checkAnswer, nextCard,
+      isLoading, studyMode, onModeChange, categoryFilter, categories, recentCount,
       wordsCount: computed(() => currentWords.value.length),
-      words,
-      filteredWords,
-      currentWordLevel,
-      currentWordScore,
-      currentWordConsecutive,
-      getWordsCountByLevel,
-      getPercentageByLevel
+      words, filteredWords,
+      currentWordLevel, currentWordScore, currentWordConsecutive,
+      getWordsCountByLevel, getPercentageByLevel
     }
   }
 }
 </script>
-
 
 <style scoped>
 .controls {
