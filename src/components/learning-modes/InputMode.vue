@@ -534,6 +534,12 @@ export default {
   backdrop-filter: blur(10px);
 }
 
+.mode-select option {
+  background: transparent;
+  color: #333;
+  padding: 10px;
+}
+
 .stats-info {
   display: flex;
   gap: 15px;

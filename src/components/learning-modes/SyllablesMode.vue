@@ -656,6 +656,12 @@ export default {
   backdrop-filter: blur(10px);
 }
 
+.mode-select option {
+  background: transparent;
+  color: #333;
+  padding: 10px;
+}
+
 .btn-start {
   background: #4CAF50;
   color: white;
