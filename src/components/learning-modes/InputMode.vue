@@ -61,7 +61,17 @@
     <div v-if="currentCard && quizStarted" class="card-container">
       <div class="card">
         <div class="card-content">
-          <h2 class="question">{{ currentQuestion }}</h2>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 30px;">
+            <h2 class="question" style="margin-bottom: 0;">{{ currentQuestion }}</h2>
+            <button
+                @click="speakWord(currentCard?.korean)"
+                class="speak-btn"
+                title="Прослушать слово на корейском"
+                :disabled="showResult"
+            >
+              🔊
+            </button>
+          </div>
 
           <div class="input-container">
             <input
@@ -174,6 +184,25 @@ export default {
       if (!words.value || words.value.length === 0) return []
       return [...new Set(words.value.map(word => word.category))].sort()
     })
+
+    const speakWord = (word) => {
+      if (!word) return;
+
+      // Останавливаем текущую речь
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 1;
+
+      utterance.onerror = () => {
+        console.error('Ошибка воспроизведения');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
 
     const filteredWords = computed(() => {
       if (!words.value || words.value.length === 0) return []
@@ -433,6 +462,7 @@ export default {
       recentCount,
       userInput,
       answerInput,
+      speakWord,
       inputPlaceholder,
       wordsCount: computed(() => currentWords.value.length),
       words,
@@ -746,6 +776,26 @@ export default {
   background: #4CAF50;
   transition: width 0.3s ease;
   border-radius: 5px;
+}
+
+.speak-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+  color: white;
+}
+
+.speak-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.speak-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .welcome {

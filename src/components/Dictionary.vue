@@ -24,7 +24,10 @@
           :key="word.id"
           class="word-card"
       >
-        <div class="korean">{{ word.korean }}</div>
+        <div class="korean-wrapper">
+          <div class="korean">{{ word.korean }}</div>
+          <button @click="speakWord(word.korean)" class="speak-btn" title="Прослушать">🔊</button>
+        </div>
         <div class="russian">{{ word.russian }}</div>
         <div class="category">{{ word.category }}</div>
       </div>
@@ -59,6 +62,24 @@ export default {
       }
     })
 
+    const speakWord = (word) => {
+      if (!word) return;
+
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 1;
+
+      utterance.onerror = () => {
+        console.error('Ошибка воспроизведения');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
     const categories = computed(() => {
       if (!words.value || words.value.length === 0) return []
       return [...new Set(words.value.map(word => word.category))].sort()
@@ -81,6 +102,7 @@ export default {
       categoryFilter,
       filteredWords,
       categories,
+      speakWord,
       isLoading
     }
   }
@@ -150,7 +172,6 @@ export default {
   font-size: 24px;
   font-weight: bold;
   color: #667eea;
-  margin-bottom: 10px;
 }
 
 .russian {
@@ -181,4 +202,26 @@ export default {
   margin: 10px 0;
 }
 
+.speak-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s ease;
+  color: white;
+}
+
+.speak-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.korean-wrapper{
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
 </style>
