@@ -99,3 +99,10 @@ public
 
 # Vite build output
 dist/
+/.idea/.gitignore
+/.idea/dataSources.xml
+/.idea/deployment.xml
+/.vscode/extensions.json
+/.idea/korean-nuna-app.iml
+/.idea/modules.xml
+/.idea/vcs.xml
