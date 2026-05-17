@@ -5,6 +5,7 @@
       <nav class="nav">
         <button @click="currentView = 'learning'" :class="{ active: currentView === 'learning' }">Обучение</button>
         <button @click="currentView = 'dictionary'" :class="{ active: currentView === 'dictionary' }">Словарь</button>
+        <button @click="currentView = 'grammar'" :class="{ active: currentView === 'grammar' }">Грамматика</button>
         <button @click="currentView = 'stats'" :class="{ active: currentView === 'stats' }">Статистика</button>
         <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }">Админ</button>
       </nav>
@@ -13,6 +14,7 @@
     <main class="main">
       <Learning v-if="currentView === 'learning'" />
       <Dictionary v-if="currentView === 'dictionary'" />
+      <Grammar v-if="currentView === 'grammar'" />
       <StatsPage v-if="currentView === 'stats'" />
       <Admin v-if="currentView === 'admin'" />
     </main>
@@ -25,10 +27,11 @@ import Learning from './components/Learning.vue'
 import Dictionary from './components/Dictionary.vue'
 import Admin from './components/Admin.vue'
 import StatsPage from './components/StatsPage.vue'
+import Grammar from "./components/Grammar.vue";
 
 export default {
   name: 'App',
-  components: { Admin, Learning, Dictionary, StatsPage },
+  components: {Grammar, Admin, Learning, Dictionary, StatsPage },
   setup() {
     const currentView = ref('learning')
     return { currentView }

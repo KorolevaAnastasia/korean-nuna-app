@@ -1,4 +1,7 @@
 const API_URL = '/api/words.php';
+const GRAMMAR_API_URL = '/api/grammar.php';
+
+// ─── Words ────────────────────────────────────────────────────────────────────
 
 export async function fetchWords() {
     const res = await fetch(API_URL);
@@ -33,8 +36,8 @@ export async function deleteWord(id) {
 }
 
 export async function updateWordStats(wordId, isCorrect, currentWord) {
-    let newScore = currentWord.score ?? 0;
-    let newLevel = currentWord.level ?? 1;
+    let newScore       = currentWord.score ?? 0;
+    let newLevel       = currentWord.level ?? 1;
     let newConsecutive = currentWord.consecutive_correct ?? 0;
 
     if (isCorrect) {
@@ -54,10 +57,10 @@ export async function updateWordStats(wordId, isCorrect, currentWord) {
 
     const updatedWord = {
         ...currentWord,
-        score: newScore,
-        level: newLevel,
+        score:               newScore,
+        level:               newLevel,
         consecutive_correct: newConsecutive,
-        last_reviewed: new Date().toISOString().split('T')[0],
+        last_reviewed:       new Date().toISOString().split('T')[0],
     };
 
     await updateWord(wordId, {
@@ -71,4 +74,38 @@ export async function updateWordStats(wordId, isCorrect, currentWord) {
     });
 
     return updatedWord;
+}
+
+// ─── Grammar ──────────────────────────────────────────────────────────────────
+
+export async function fetchGrammar() {
+    const res = await fetch(GRAMMAR_API_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+
+export async function addGrammar(item) {
+    const res = await fetch(GRAMMAR_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+
+export async function updateGrammar(id, item) {
+    const res = await fetch(`${GRAMMAR_API_URL}?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+
+export async function deleteGrammar(id) {
+    const res = await fetch(`${GRAMMAR_API_URL}?id=${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
 }
