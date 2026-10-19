@@ -37,6 +37,8 @@ export default {
     return { currentView }
   }
 }
+
+//test
 </script>
 
 <style>
