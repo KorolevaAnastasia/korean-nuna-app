@@ -28,8 +28,6 @@ import Dictionary from './components/Dictionary.vue'
 import Admin from './components/Admin.vue'
 import StatsPage from './components/StatsPage.vue'
 import Grammar from "./components/Grammar.vue";
-//test 3
-
 
 export default {
   name: 'App',
