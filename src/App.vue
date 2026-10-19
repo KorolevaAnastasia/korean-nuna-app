@@ -38,8 +38,6 @@ export default {
   }
 }
 
-//test
-
 //test2
 
 //тут еще фикс
