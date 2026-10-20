@@ -30,7 +30,6 @@ import StatsPage from './components/StatsPage.vue'
 import Grammar from "./components/Grammar.vue";
 //test 3
 
-
 export default {
   name: 'App',
   components: {Grammar, Admin, Learning, Dictionary, StatsPage },
@@ -49,7 +48,6 @@ export default {
 
 <style>
 
-/*test 4*/
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
