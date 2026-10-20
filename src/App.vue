@@ -22,6 +22,9 @@
 </template>
 
 <script>
+
+//test5
+
 import { ref } from 'vue'
 import Learning from './components/Learning.vue'
 import Dictionary from './components/Dictionary.vue'
