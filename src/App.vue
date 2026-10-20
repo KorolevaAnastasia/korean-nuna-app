@@ -32,7 +32,7 @@ import Admin from './components/Admin.vue'
 import StatsPage from './components/StatsPage.vue'
 import Grammar from "./components/Grammar.vue";
 //test 3
-
+//dhdujfdshuifdshudf
 
 export default {
   name: 'App',
@@ -42,7 +42,7 @@ export default {
     return { currentView }
   }
 }
-
+//dhdujfdshuifdshudf
 </script>
 
 <style>
