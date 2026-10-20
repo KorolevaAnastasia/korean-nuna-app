@@ -43,16 +43,10 @@ export default {
   }
 }
 
-//test
-
-//test2
-
-//тут еще фикс
 </script>
 
 <style>
 
-/*test 4*/
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
